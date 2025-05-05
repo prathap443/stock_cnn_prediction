@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from textblob import TextBlob
 import ta
-from sklearn.preprocessing import StandardScaler
+import joblib
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, 
@@ -55,7 +55,7 @@ class StockCNN(nn.Module):
 
 # Load pre-trained model and label encoder
 try:
-    scaler = torch.load("models/scaler.pkl")
+    scaler = joblib.load("models/scaler.pkl")
     logger.info("Scaler loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load scaler: {str(e)}")
@@ -71,7 +71,7 @@ except Exception as e:
     model = None
 
 try:
-    label_encoder = torch.load("models/label_encoder.pkl")
+    label_encoder = joblib.load("models/label_encoder.pkl")
     logger.info("Label encoder loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load label encoder: {str(e)}")
