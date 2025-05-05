@@ -13,6 +13,11 @@ import pandas as pd
 from textblob import TextBlob
 import ta
 
+# Setup logging before anything else
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('stock_analysis_webapp')
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"  # Replace with a secure secret key for sessions
@@ -43,11 +48,6 @@ FEATURE_COLUMNS = [
     'PE_Ratio', 'EPS', 'Dividend_Yield', 'News_Sentiment',
     'volume_score', 'percent_change_5d', 'volatility'
 ]
-
-# Setup logging
-logging.basicConfig(level=logging.INFO, 
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('stock_analysis_webapp')
 
 # Create directories
 os.makedirs('data', exist_ok=True)
