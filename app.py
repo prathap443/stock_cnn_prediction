@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 from textblob import TextBlob
 import ta
-from model_utils import SimplifiedModel  # Import SimplifiedModel
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -23,15 +22,26 @@ GOOGLE_CLIENT_ID = "534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleuse
 GOOGLE_CLIENT_SECRET = "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"
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Load pre-trained model and label encoder
-model = joblib.load("models/stock_predictor.pkl")
-label_encoder = joblib.load("models/label_encoder.pkl")
+# Load pre-trained model and label encoder with error handling
+try:
+    model = joblib.load("models/stock_predictor.pkl")
+    logger.info("Model loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load model: {str(e)}")
+    model = None
 
-# Define the feature columns expected by the model (same as in training)
+try:
+    label_encoder = joblib.load("models/label_encoder.pkl")
+    logger.info("Label encoder loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load label encoder: {str(e)}")
+    label_encoder = None
+
+# Define the feature columns expected by the model (match train_model.py)
 FEATURE_COLUMNS = [
-    'RSI', 'MACD', 'SMA_50', 'BB_Width', 'PE_Ratio',
-    'Dividend_Yield', 'News_Sentiment', 'volume_score',
-    'percent_change_5d', 'volatility'
+    'RSI', 'MACD', 'SMA_50', 'BB_Width', 'Stochastic',
+    'PE_Ratio', 'EPS', 'Dividend_Yield', 'News_Sentiment',
+    'volume_score', 'percent_change_5d', 'volatility'
 ]
 
 # Setup logging
@@ -114,7 +124,7 @@ def is_market_open():
     return market_open <= est_time <= market_close
 
 def fetch_yahoo_finance_data(symbol, start, end, interval, retries=3):
-    """Fetch data from Yahoo Finance with retry logic"""
+    """Fetch data from Yahoo Finance with retry logic (used as a fallback)"""
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={start}&period2={end}&interval={interval}"
     headers = {"User-Agent": "Mozilla/5.0"}
     
@@ -252,6 +262,7 @@ def get_stock_info(symbol):
                 "industry": quote.get('industry', "Unknown"),
                 "market_cap": quote.get('marketCap', None),
                 "pe_ratio": quote.get('trailingPE', None),
+                "eps": quote.get('epsTrailingTwelveMonths', None),
                 "dividend_yield": quote.get('dividendYield', 0.0)
             }
         else:
@@ -305,6 +316,7 @@ def get_stock_info_by_scraping(symbol):
             "sector": SECTOR_MAPPING.get(symbol, "Unknown"),
             "industry": "Unknown",
             "pe_ratio": None,
+            "eps": None,
             "dividend_yield": 0.0
         }
     except Exception as e:
@@ -315,6 +327,7 @@ def get_stock_info_by_scraping(symbol):
             "current_price": None,
             "sector": SECTOR_MAPPING.get(symbol, "Unknown"),
             "pe_ratio": None,
+            "eps": None,
             "dividend_yield": 0.0
         }
 
@@ -374,6 +387,8 @@ def get_historical_data(symbol, days=60):
         macd = ta.trend.MACD(df['Close'], window_slow=26, window_fast=12, window_sign=9)
         df['MACD'] = macd.macd()
         df['SMA_50'] = ta.trend.SMAIndicator(df['Close'], window=50).sma_indicator()
+        stochastic = ta.momentum.StochasticOscillator(high=df['High'], low=df['Low'], close=df['Close'], window=14, smooth_window=3)
+        df['Stochastic'] = stochastic.stoch()
         bollinger = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
         df['BB_High'] = bollinger.bollinger_hband()
         df['BB_Low'] = bollinger.bollinger_lband()
@@ -443,6 +458,7 @@ def get_historical_data(symbol, days=60):
                 "macd": f"{macd_value:.2f}",
                 "sma_50": df['SMA_50'].iloc[-1] if not pd.isna(df['SMA_50'].iloc[-1]) else 0,
                 "bb_width": df['BB_Width'].iloc[-1] if not pd.isna(df['BB_Width'].iloc[-1]) else 0,
+                "stochastic": df['Stochastic'].iloc[-1] if not pd.isna(df['Stochastic'].iloc[-1]) else 50,
                 "volume_analysis": volume_trend,
                 "trend": trend
             }
@@ -464,6 +480,7 @@ def calculate_fallback_data(symbol):
             "macd": f"{random.uniform(-2, 2):.2f}",
             "sma_50": 0,
             "bb_width": 0,
+            "stochastic": f"{random.uniform(20, 80):.1f}",
             "volume_analysis": "Neutral",
             "trend": "Neutral"
         }
@@ -569,11 +586,12 @@ def analyze_stock(symbol):
         macd_str = str(technical_indicators.get("macd", "0"))
         sma_50 = safe_float(technical_indicators.get("sma_50", 0))
         bb_width = safe_float(technical_indicators.get("bb_width", 0))
+        stochastic = safe_float(technical_indicators.get("stochastic", 50))
 
         rsi = safe_float(rsi_str, default=50)
         macd = safe_float(macd_str, default=0)
         volume_score = 1 if "Increasing" in technical_indicators.get("volume_analysis", "") else 0
-        sentiment_score = safe_float(news_sentiment, 0)
+        eps = safe_float(info.get("eps", np.nan))
         pe_ratio = safe_float(info.get("pe_ratio", np.nan))
         dividend_yield = safe_float(info.get("dividend_yield", 0))
 
@@ -582,9 +600,11 @@ def analyze_stock(symbol):
             'MACD': macd,
             'SMA_50': sma_50,
             'BB_Width': bb_width,
+            'Stochastic': stochastic,
             'PE_Ratio': pe_ratio,
+            'EPS': eps,
             'Dividend_Yield': dividend_yield,
-            'News_Sentiment': sentiment_score,
+            'News_Sentiment': news_sentiment,
             'volume_score': volume_score,
             'percent_change_5d': percent_change_5d,
             'volatility': volatility
@@ -592,18 +612,23 @@ def analyze_stock(symbol):
         features_df = pd.DataFrame([features_dict], columns=FEATURE_COLUMNS)
 
         features_df['PE_Ratio'] = features_df['PE_Ratio'].fillna(features_df['PE_Ratio'].median())
+        features_df['EPS'] = features_df['EPS'].fillna(features_df['EPS'].median())
         features_df['Dividend_Yield'] = features_df['Dividend_Yield'].fillna(0.0)
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
-        pred = model.predict(features_df)[0]
-        recommendation = label_encoder.inverse_transform([pred])[0]
+        if model is not None:
+            pred = model.predict(features_df)[0]
+            recommendation = label_encoder.inverse_transform([pred])[0]
+        else:
+            recommendation = "HOLD"  # Fallback if model fails to load
 
         reason = (
             f"🤖 ML-based prediction using "
             f"RSI={rsi:.1f}, MACD={macd:.2f}, SMA_50={sma_50:.2f}, BB_Width={bb_width:.2f}, "
-            f"PE_Ratio={pe_ratio:.2f}, Dividend_Yield={dividend_yield:.2f}, "
-            f"Sentiment={sentiment_score:.2f}, Volume_Score={volume_score}, "
-            f"Change_5d={percent_change_5d:.2f}%, Volatility={volatility:.2f}"
+            f"Stochastic={stochastic:.1f}, PE_Ratio={pe_ratio:.2f}, EPS={eps:.2f}, "
+            f"Dividend_Yield={dividend_yield:.2f}, Sentiment={news_sentiment:.2f}, "
+            f"Volume_Score={volume_score}, Change_5d={percent_change_5d:.2f}%, "
+            f"Volatility={volatility:.2f}"
         )
 
         logger.info(f"{symbol} → ML RECOMMEND: {recommendation}")
@@ -807,7 +832,9 @@ def predict():
             'MACD': data.get("macd", 0),
             'SMA_50': data.get("sma_50", 0),
             'BB_Width': data.get("bb_width", 0),
+            'Stochastic': data.get("stochastic", 50),
             'PE_Ratio': data.get("pe_ratio", np.nan),
+            'EPS': data.get("eps", np.nan),
             'Dividend_Yield': data.get("dividend_yield", 0),
             'News_Sentiment': data.get("news_sentiment", 0),
             'volume_score': data.get("volume_score", 0),
@@ -816,11 +843,16 @@ def predict():
         }
         features_df = pd.DataFrame([features_dict], columns=FEATURE_COLUMNS)
         features_df['PE_Ratio'] = features_df['PE_Ratio'].fillna(features_df['PE_Ratio'].median())
+        features_df['EPS'] = features_df['EPS'].fillna(features_df['EPS'].median())
         features_df['Dividend_Yield'] = features_df['Dividend_Yield'].fillna(0.0)
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
-        prediction = model.predict(features_df)[0]
-        recommendation = label_encoder.inverse_transform([prediction])[0]
+        if model is not None:
+            prediction = model.predict(features_df)[0]
+            recommendation = label_encoder.inverse_transform([prediction])[0]
+        else:
+            recommendation = "HOLD"  # Fallback if model fails to load
+
         return jsonify({
             "recommendation": recommendation,
             "reason": f"ML-based prediction using RSI={features_df['RSI'][0]}, MACD={features_df['MACD'][0]}, volume_score={features_df['volume_score'][0]}, change={features_df['percent_change_5d'][0]}, volatility={features_df['volatility'][0]}"
@@ -850,6 +882,8 @@ def live_prediction(symbol):
         macd = ta.trend.MACD(df['Close'], window_slow=26, window_fast=12, window_sign=9)
         df['MACD'] = macd.macd()
         df['SMA_50'] = ta.trend.SMAIndicator(df['Close'], window=50).sma_indicator()
+        stochastic = ta.momentum.StochasticOscillator(high=[max(prices)]*len(prices), low=[min(prices)]*len(prices), close=df['Close'], window=14, smooth_window=3)
+        df['Stochastic'] = stochastic.stoch()
         bollinger = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
         df['BB_Width'] = (bollinger.bollinger_hband() - bollinger.bollinger_lband()) / df['Close']
 
@@ -864,7 +898,9 @@ def live_prediction(symbol):
         macd_value = df['MACD'].iloc[-1] if not pd.isna(df['MACD'].iloc[-1]) else 0
         sma_50 = df['SMA_50'].iloc[-1] if not pd.isna(df['SMA_50'].iloc[-1]) else 0
         bb_width = df['BB_Width'].iloc[-1] if not pd.isna(df['BB_Width'].iloc[-1]) else 0
+        stochastic_value = df['Stochastic'].iloc[-1] if not pd.isna(df['Stochastic'].iloc[-1]) else 50
         volume_score = 1 if len(prices) > 10 and prices[-1] > prices[-2] else 0
+        eps = safe_float(info.get("eps", np.nan))
         pe_ratio = safe_float(info.get("pe_ratio", np.nan))
         dividend_yield = safe_float(info.get("dividend_yield", 0))
 
@@ -873,7 +909,9 @@ def live_prediction(symbol):
             'MACD': macd_value,
             'SMA_50': sma_50,
             'BB_Width': bb_width,
+            'Stochastic': stochastic_value,
             'PE_Ratio': pe_ratio,
+            'EPS': eps,
             'Dividend_Yield': dividend_yield,
             'News_Sentiment': news_sentiment,
             'volume_score': volume_score,
@@ -883,11 +921,15 @@ def live_prediction(symbol):
         features_df = pd.DataFrame([features_dict], columns=FEATURE_COLUMNS)
 
         features_df['PE_Ratio'] = features_df['PE_Ratio'].fillna(features_df['PE_Ratio'].median())
+        features_df['EPS'] = features_df['EPS'].fillna(features_df['EPS'].median())
         features_df['Dividend_Yield'] = features_df['Dividend_Yield'].fillna(0.0)
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
-        pred = model.predict(features_df)[0]
-        recommendation = label_encoder.inverse_transform([pred])[0]
+        if model is not None:
+            pred = model.predict(features_df)[0]
+            recommendation = label_encoder.inverse_transform([pred])[0]
+        else:
+            recommendation = "HOLD"  # Fallback if model fails to load
 
         return jsonify({
             "symbol": symbol,
