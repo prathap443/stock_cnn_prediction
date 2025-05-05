@@ -7,46 +7,80 @@ from datetime import datetime, timedelta
 import logging
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import joblib
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 from textblob import TextBlob
 import ta
+from sklearn.preprocessing import StandardScaler
 
-# Setup logging before anything else
+# Setup logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('stock_analysis_webapp')
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "your_secret_key_here"  # Replace with a secure secret key for sessions
+app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
 GOOGLE_CLIENT_ID = "534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Load pre-trained model and label encoder with error handling
+# Define CNN Model (must match train_model.py)
+class StockCNN(nn.Module):
+    def __init__(self, num_features, num_classes):
+        super(StockCNN, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels=num_features, out_channels=16, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool1d(kernel_size=2)
+        self.fc1 = nn.Linear(32 * 2, 64)
+        self.fc2 = nn.Linear(64, num_classes)
+        self.dropout = nn.Dropout(0.3)
+
+    def forward(self, x):
+        x = x.permute(0, 2, 1)
+        x = F.relu(self.conv1(x))
+        x = self.pool(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return F.log_softmax(x, dim=1)
+
+# Load pre-trained model and label encoder
 try:
-    model = joblib.load("models/stock_predictor.pkl")
+    scaler = torch.load("models/scaler.pkl")
+    logger.info("Scaler loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load scaler: {str(e)}")
+    scaler = None
+
+try:
+    model = StockCNN(num_features=9, num_classes=3)  # 9 features, 3 classes (SELL, HOLD, BUY)
+    model.load_state_dict(torch.load("models/stock_predictor.pth", map_location=torch.device('cpu')))
+    model.eval()
     logger.info("Model loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load model: {str(e)}")
     model = None
 
 try:
-    label_encoder = joblib.load("models/label_encoder.pkl")
+    label_encoder = torch.load("models/label_encoder.pkl")
     logger.info("Label encoder loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load label encoder: {str(e)}")
     label_encoder = None
 
-# Define the feature columns expected by the model (match train_model.py)
+# Define feature columns (match train_model.py)
 FEATURE_COLUMNS = [
     'RSI', 'MACD', 'SMA_50', 'BB_Width', 'Stochastic',
-    'PE_Ratio', 'EPS', 'Dividend_Yield', 'News_Sentiment',
-    'volume_score', 'percent_change_5d', 'volatility'
+    'News_Sentiment', 'volume_score', 'percent_change_5d', 'volatility'
 ]
 
 # Create directories
@@ -111,7 +145,6 @@ SECTOR_MAPPING = {
 }
 
 def is_market_open():
-    """Check if U.S. markets are open (9:30 AM to 4:00 PM EST)"""
     now = datetime.utcnow()
     est_offset = timedelta(hours=-5)
     est_time = now + est_offset
@@ -124,7 +157,6 @@ def is_market_open():
     return market_open <= est_time <= market_close
 
 def fetch_yahoo_finance_data(symbol, start, end, interval, retries=3):
-    """Fetch data from Yahoo Finance with retry logic (used as a fallback)"""
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={start}&period2={end}&interval={interval}"
     headers = {"User-Agent": "Mozilla/5.0"}
     
@@ -147,14 +179,12 @@ def fetch_yahoo_finance_data(symbol, start, end, interval, retries=3):
                 return None
 
 def safe_float(value, default=0.0):
-    """Safely convert a value to float, returning a default if conversion fails"""
     try:
         return float(value)
     except (ValueError, TypeError):
         return default
 
 def get_last_trading_day(end_dt):
-    """Get the last trading day before the given datetime"""
     est_offset = timedelta(hours=-5)
     est_time = end_dt + est_offset
 
@@ -176,7 +206,6 @@ def get_last_trading_day(end_dt):
     return last_trading_day
 
 def get_price_history(symbol, period):
-    """Get price history for a specific period (1D, 1W, 1M, or 14D)"""
     now = datetime.utcnow()
     end_dt = now.replace(minute=0, second=0, microsecond=0)
     
@@ -240,8 +269,7 @@ def get_price_history(symbol, period):
         return [{"error": f"Error processing {period} data for {symbol}: {str(e)}"}]
 
 def get_stock_info(symbol):
-    """Get basic stock info and current price with improved reliability"""
-    time.sleep(random.uniform(0.5, 1.5))  # Randomized delay to avoid rate limiting
+    time.sleep(random.uniform(0.5, 1.5))
     
     try:
         url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
@@ -272,7 +300,6 @@ def get_stock_info(symbol):
         return get_stock_info_by_scraping(symbol)
 
 def get_stock_info_by_scraping(symbol):
-    """Get stock info by scraping - backup method"""
     try:
         url = f"https://finance.yahoo.com/quote/{symbol}"
         headers = {
@@ -332,7 +359,6 @@ def get_stock_info_by_scraping(symbol):
         }
 
 def get_historical_data(symbol, days=60):
-    """Get historical price data for analysis with improved reliability"""
     time.sleep(random.uniform(0.5, 1.5))
     
     try:
@@ -468,7 +494,6 @@ def get_historical_data(symbol, days=60):
         return calculate_fallback_data(symbol)
 
 def calculate_fallback_data(symbol):
-    """Calculate fallback data when we can't get real data"""
     return {
         "symbol": symbol,
         "percent_change_2w": random.uniform(-10, 10),
@@ -487,7 +512,6 @@ def calculate_fallback_data(symbol):
     }
 
 def analyze_volume(volumes):
-    """Analyze trading volume trend"""
     if not volumes or len(volumes) < 5:
         return "N/A"
     
@@ -513,7 +537,6 @@ def analyze_volume(volumes):
         return "Stable"
 
 def get_news_articles(symbol, retries=3):
-    """Fetch recent news articles for a symbol and calculate sentiment"""
     articles = []
     sentiment_score = 0
     for attempt in range(retries):
@@ -569,7 +592,6 @@ def get_news_articles(symbol, retries=3):
     return articles, 0
 
 def analyze_stock(symbol):
-    """Analyze a single stock"""
     try:
         info = get_stock_info(symbol)
         history = get_historical_data(symbol, days=60)
@@ -601,9 +623,6 @@ def analyze_stock(symbol):
             'SMA_50': sma_50,
             'BB_Width': bb_width,
             'Stochastic': stochastic,
-            'PE_Ratio': pe_ratio,
-            'EPS': eps,
-            'Dividend_Yield': dividend_yield,
             'News_Sentiment': news_sentiment,
             'volume_score': volume_score,
             'percent_change_5d': percent_change_5d,
@@ -616,14 +635,17 @@ def analyze_stock(symbol):
         features_df['Dividend_Yield'] = features_df['Dividend_Yield'].fillna(0.0)
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
-        if model is not None:
-            pred = model.predict(features_df)[0]
+        if model is not None and scaler is not None:
+            features_array = scaler.transform(features_df)
+            features_tensor = torch.tensor(features_array, dtype=torch.float).unsqueeze(0)  # Add batch dimension
+            with torch.no_grad():
+                pred = model(features_tensor).argmax(dim=1).item()
             recommendation = label_encoder.inverse_transform([pred])[0]
         else:
-            recommendation = "HOLD"  # Fallback if model fails to load
+            recommendation = "HOLD"
 
         reason = (
-            f"🤖 ML-based prediction using "
+            f"🤖 CNN-based prediction using "
             f"RSI={rsi:.1f}, MACD={macd:.2f}, SMA_50={sma_50:.2f}, BB_Width={bb_width:.2f}, "
             f"Stochastic={stochastic:.1f}, PE_Ratio={pe_ratio:.2f}, EPS={eps:.2f}, "
             f"Dividend_Yield={dividend_yield:.2f}, Sentiment={news_sentiment:.2f}, "
@@ -631,7 +653,7 @@ def analyze_stock(symbol):
             f"Volatility={volatility:.2f}"
         )
 
-        logger.info(f"{symbol} → ML RECOMMEND: {recommendation}")
+        logger.info(f"{symbol} → CNN RECOMMEND: {recommendation}")
 
         return {
             "symbol": symbol,
@@ -665,7 +687,6 @@ def analyze_stock(symbol):
         }
 
 def create_fallback_entry(symbol):
-    """Create a fallback stock entry"""
     return {
         "symbol": symbol,
         "name": symbol,
@@ -683,7 +704,6 @@ def create_fallback_entry(symbol):
     }
 
 def analyze_all_stocks():
-    """Analyze all stocks and cache the results"""
     try:
         with ThreadPoolExecutor(max_workers=10) as executor:
             future_to_symbol = {executor.submit(analyze_stock, symbol): symbol for symbol in STOCK_LIST}
@@ -728,7 +748,6 @@ def index():
 
 @app.route('/login')
 def login():
-    """Initiate Google OAuth login"""
     discovery_doc = requests.get(GOOGLE_DISCOVERY_URL).json()
     authorization_endpoint = discovery_doc["authorization_endpoint"]
 
@@ -738,9 +757,8 @@ def login():
 
 @app.route('/callback', methods=["POST"])
 def callback():
-    """Handle Google Identity Services login callback"""
     try:
-        token = request.form.get('credential')  # New GIS sends 'credential'
+        token = request.form.get('credential')
         if not token:
             return jsonify({"error": "Missing credential token"}), 400
 
@@ -752,7 +770,6 @@ def callback():
             grequests.Request(),
             GOOGLE_CLIENT_ID
         )
-        # Save user info in session
         session['user'] = {
             "name": idinfo.get('name'),
             "email": idinfo.get('email'),
@@ -765,13 +782,11 @@ def callback():
 
 @app.route('/logout')
 def logout():
-    """Clear session and log out"""
     session.clear()
     return redirect('/')
 
 @app.route('/api/stocks')
 def api_stocks():
-    """Get stock data - first try cache, then live data"""
     try:
         cache_duration = 300 if is_market_open() else 1800
         if os.path.exists('data/stock_analysis.json'):
@@ -789,7 +804,6 @@ def api_stocks():
 
 @app.route('/api/stock_history/<symbol>/<period>')
 def api_stock_history(symbol, period):
-    """Get price history for a specific stock and time period"""
     try:
         history = get_price_history(symbol, period)
         return jsonify(history)
@@ -799,7 +813,6 @@ def api_stock_history(symbol, period):
 
 @app.route('/api/stock_news/<symbol>')
 def api_stock_news(symbol):
-    """Get recent news articles for a specific stock"""
     try:
         articles, _ = get_news_articles(symbol, retries=3)
         return jsonify(articles)
@@ -809,7 +822,6 @@ def api_stock_news(symbol):
 
 @app.route('/api/refresh', methods=['POST'])
 def api_refresh():
-    """Refresh stock data"""
     try:
         if os.path.exists('data/stock_analysis.json'):
             os.remove('data/stock_analysis.json')
@@ -824,7 +836,6 @@ def api_refresh():
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    """Predict recommendation for given features"""
     try:
         data = request.get_json()
         features_dict = {
@@ -833,9 +844,6 @@ def predict():
             'SMA_50': data.get("sma_50", 0),
             'BB_Width': data.get("bb_width", 0),
             'Stochastic': data.get("stochastic", 50),
-            'PE_Ratio': data.get("pe_ratio", np.nan),
-            'EPS': data.get("eps", np.nan),
-            'Dividend_Yield': data.get("dividend_yield", 0),
             'News_Sentiment': data.get("news_sentiment", 0),
             'volume_score': data.get("volume_score", 0),
             'percent_change_5d': data.get("percent_change_5d", 0),
@@ -847,22 +855,24 @@ def predict():
         features_df['Dividend_Yield'] = features_df['Dividend_Yield'].fillna(0.0)
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
-        if model is not None:
-            prediction = model.predict(features_df)[0]
+        if model is not None and scaler is not None:
+            features_array = scaler.transform(features_df)
+            features_tensor = torch.tensor(features_array, dtype=torch.float).unsqueeze(0)
+            with torch.no_grad():
+                prediction = model(features_tensor).argmax(dim=1).item()
             recommendation = label_encoder.inverse_transform([prediction])[0]
         else:
-            recommendation = "HOLD"  # Fallback if model fails to load
+            recommendation = "HOLD"
 
         return jsonify({
             "recommendation": recommendation,
-            "reason": f"ML-based prediction using RSI={features_df['RSI'][0]}, MACD={features_df['MACD'][0]}, volume_score={features_df['volume_score'][0]}, change={features_df['percent_change_5d'][0]}, volatility={features_df['volatility'][0]}"
+            "reason": f"CNN-based prediction using RSI={features_df['RSI'][0]}, MACD={features_df['MACD'][0]}, volume_score={features_df['volume_score'][0]}, change={features_df['percent_change_5d'][0]}, volatility={features_df['volatility'][0]}"
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/live_prediction/<symbol>')
 def live_prediction(symbol):
-    """Get a live prediction for a specific stock based on the latest intraday data"""
     try:
         history_1d = get_price_history(symbol, "1D")
         if not history_1d or ('error' in history_1d[0] and history_1d[0]['error']):
@@ -910,9 +920,6 @@ def live_prediction(symbol):
             'SMA_50': sma_50,
             'BB_Width': bb_width,
             'Stochastic': stochastic_value,
-            'PE_Ratio': pe_ratio,
-            'EPS': eps,
-            'Dividend_Yield': dividend_yield,
             'News_Sentiment': news_sentiment,
             'volume_score': volume_score,
             'percent_change_5d': percent_change_5d,
@@ -925,11 +932,14 @@ def live_prediction(symbol):
         features_df['Dividend_Yield'] = features_df['Dividend_Yield'].fillna(0.0)
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
-        if model is not None:
-            pred = model.predict(features_df)[0]
+        if model is not None and scaler is not None:
+            features_array = scaler.transform(features_df)
+            features_tensor = torch.tensor(features_array, dtype=torch.float).unsqueeze(0)
+            with torch.no_grad():
+                pred = model(features_tensor).argmax(dim=1).item()
             recommendation = label_encoder.inverse_transform([pred])[0]
         else:
-            recommendation = "HOLD"  # Fallback if model fails to load
+            recommendation = "HOLD"
 
         return jsonify({
             "symbol": symbol,
@@ -950,7 +960,6 @@ def live_prediction(symbol):
 
 @app.route("/retrain", methods=["POST"])
 def retrain_model():
-    """Placeholder for model retraining"""
     try:
         import train_model
         return jsonify({"success": True, "message": "Model retrained successfully."})
@@ -964,5 +973,5 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error(f"Initial analysis error: {str(e)}")
     import os
-    port = int(os.environ.get("PORT", 10000))  # Use PORT environment variable for Render
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
