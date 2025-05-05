@@ -10,8 +10,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import joblib
 import numpy as np
 import pandas as pd
-from textblob import TextBlob  # For basic sentiment analysis
-import ta  # For technical indicators (RSI, MACD, etc.)
+from textblob import TextBlob
+import ta
+from model_utils import SimplifiedModel  # Import SimplifiedModel
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -700,7 +701,6 @@ def index():
         return render_template('index.html', user_name=user_info.get('name', 'User'))
     return render_template('login.html')
 
-
 @app.route('/login')
 def login():
     """Initiate Google OAuth login"""
@@ -737,8 +737,6 @@ def callback():
     except Exception as e:
         logger.error(f"Error verifying ID token: {str(e)}")
         return jsonify({"error": "Authentication failed"}), 400
-
-
 
 @app.route('/logout')
 def logout():
@@ -923,5 +921,6 @@ if __name__ == "__main__":
             analyze_all_stocks()
         except Exception as e:
             logger.error(f"Initial analysis error: {str(e)}")
-    port = int(os.getenv("PORT", 10000))
+    import os
+    port = int(os.environ.get("PORT", 10000))  # Use PORT environment variable for Render
     app.run(host='0.0.0.0', port=port)
