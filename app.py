@@ -751,41 +751,41 @@ def create_fallback_entry(symbol):
         "sector": SECTOR_MAPPING.get(symbol, "Unknown")
     }
 
-def analyze_all_stocks():
-    try:
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_symbol = {executor.submit(analyze_stock, symbol): symbol for symbol in STOCK_LIST}
-            stocks = []
-            for future in as_completed(future_to_symbol):
-                symbol = future_to_symbol[future]
-                try:
-                    result = future.result()
-                    stocks.append(result)
-                except Exception as e:
-                    logger.error(f"Error analyzing {symbol}: {str(e)}")
-                    stocks.append(create_fallback_entry(symbol))
+# def analyze_all_stocks():
+#     try:
+#         with ThreadPoolExecutor(max_workers=10) as executor:
+#             future_to_symbol = {executor.submit(analyze_stock, symbol): symbol for symbol in STOCK_LIST}
+#             stocks = []
+#             for future in as_completed(future_to_symbol):
+#                 symbol = future_to_symbol[future]
+#                 try:
+#                     result = future.result()
+#                     stocks.append(result)
+#                 except Exception as e:
+#                     logger.error(f"Error analyzing {symbol}: {str(e)}")
+#                     stocks.append(create_fallback_entry(symbol))
 
-        stocks.sort(key=lambda x: x['symbol'])
+#         stocks.sort(key=lambda x: x['symbol'])
 
-        summary = {"BUY": 0, "HOLD": 0, "SELL": 0}
-        for stock in stocks:
-            recommendation = stock.get('recommendation', 'HOLD')
-            summary[recommendation] = summary.get(recommendation, 0) + 1
+#         summary = {"BUY": 0, "HOLD": 0, "SELL": 0}
+#         for stock in stocks:
+#             recommendation = stock.get('recommendation', 'HOLD')
+#             summary[recommendation] = summary.get(recommendation, 0) + 1
 
-        result = {
-            "stocks": stocks,
-            "summary": summary,
-            "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        }
+#         result = {
+#             "stocks": stocks,
+#             "summary": summary,
+#             "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+#         }
 
-        with open('data/stock_analysis.json', 'w') as f:
-            json.dump(result, f, indent=2)
+#         with open('data/stock_analysis.json', 'w') as f:
+#             json.dump(result, f, indent=2)
 
-        logger.info(f"Successfully analyzed {len(stocks)} stocks")
-        return result
-    except Exception as e:
-        logger.error(f"Error in analyze_all_stocks: {str(e)}")
-        return {"error": f"Analysis failed: {str(e)}"}
+#         logger.info(f"Successfully analyzed {len(stocks)} stocks")
+#         return result
+#     except Exception as e:
+#         logger.error(f"Error in analyze_all_stocks: {str(e)}")
+#         return {"error": f"Analysis failed: {str(e)}"}
 
 @app.route('/api/health')
 def health_check():
@@ -1138,10 +1138,10 @@ def retrain_model():
 
 
 if __name__ == "__main__":
-    if not os.path.exists('data/stock_analysis.json'):
-        try:
-            analyze_all_stocks()
-        except Exception as e:
-            logger.error(f"Initial analysis error: {str(e)}")
+    #if not os.path.exists('data/stock_analysis.json'):
+      #  try:
+      #      analyze_all_stocks()
+      #  except Exception as e:
+        #    logger.error(f"Initial analysis error: {str(e)}")
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
