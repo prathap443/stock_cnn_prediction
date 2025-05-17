@@ -1,0 +1,8 @@
+# Auto normalize line endings
+* text=auto
+
+# Specific files to always use LF (optional)
+*.sh text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.json text eol=lf
