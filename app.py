@@ -25,8 +25,8 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('stock_analysis_webapp')
 
-# Initialize Flask app
-app = Flask(__name__)
+# Initialize Flask app with static folder set to 'static/build'
+app = Flask(__name__, static_folder="static/build")
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
@@ -89,7 +89,7 @@ FEATURE_COLUMNS = [
 
 # Create directories
 os.makedirs('data', exist_ok=True)
-os.makedirs('static', exist_ok=True)
+os.makedirs('static/build', exist_ok=True)  # Updated to create static/build
 
 # Stock lists
 base_stocks = [
@@ -787,8 +787,10 @@ def analyze_all_stocks():
         return {"error": f"Analysis failed: {str(e)}"}
 
 @app.route('/')
-def index():
-    return send_from_directory('static/build', 'index.html')
+def serve_react():
+    if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/login')
 def login():
@@ -830,7 +832,7 @@ def callback():
         }
 
         # Dynamically redirect back to the domain the user used
-        return redirect(url_for("index", _external=True, _scheme="https"))
+        return redirect(url_for("serve_react", _external=True, _scheme="https"))
 
     except Exception as e:
         logger.error(f"Error verifying ID token: {str(e)}")
@@ -1090,16 +1092,16 @@ def retrain_model():
 # Serve React app for specific trade routes
 @app.route('/trade/<symbol>')
 def serve_trade(symbol):
-    if not os.path.exists(os.path.join('static', 'index.html')):
-        return jsonify({"error": "React app not found. Ensure index.html exists in the static directory."}), 404
-    return send_from_directory('static', 'index.html')
+    if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
+    return send_from_directory(app.static_folder, 'index.html')
 
 # Catch-all route for all other frontend paths
 @app.route('/<path:path>')
 def catch_all(path):
-    if not os.path.exists(os.path.join('static', 'index.html')):
-        return jsonify({"error": "React app not found. Ensure index.html exists in the static directory."}), 404
-    return send_from_directory('static', 'index.html')
+    if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
+    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
