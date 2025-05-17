@@ -25,8 +25,8 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('stock_analysis_webapp')
 
-# Initialize Flask app with static folder set to 'static/build'
-app = Flask(__name__, static_folder="static/build")
+# Initialize Flask app with static and template folders
+app = Flask(__name__, static_folder="static/build", template_folder="templates")
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
@@ -90,6 +90,7 @@ FEATURE_COLUMNS = [
 # Create directories
 os.makedirs('data', exist_ok=True)
 os.makedirs('static/build', exist_ok=True)  # Updated to create static/build
+os.makedirs('templates', exist_ok=True)     # Added to create templates directory
 
 # Stock lists
 base_stocks = [
@@ -786,11 +787,19 @@ def analyze_all_stocks():
         logger.error(f"Error in analyze_all_stocks: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
 
-@app.route('/')
-def serve_react():
-    if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
-    return send_from_directory(app.static_folder, 'index.html')
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        if not os.path.exists(os.path.join(app.static_folder, "index.html")):
+            return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
+        return send_from_directory(app.static_folder, "index.html")
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    return send_from_directory(os.path.join(app.static_folder, "static"), filename)
+
 
 @app.route('/login')
 def login():
@@ -1088,20 +1097,6 @@ def retrain_model():
         return jsonify({"success": True, "message": "Model retrained successfully."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-
-# Serve React app for specific trade routes
-@app.route('/trade/<symbol>')
-def serve_trade(symbol):
-    if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
-    return send_from_directory(app.static_folder, 'index.html')
-
-# Catch-all route for all other frontend paths
-@app.route('/<path:path>')
-def catch_all(path):
-    if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
-    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
