@@ -1141,11 +1141,7 @@ def not_found(e):
     return send_from_directory(app.static_folder, 'index.html')
 
 
-# Run stock analysis at startup ONLY on Render and if file is missing
-    file_path = os.path.join(app.static_folder, path)
-    if path != "" and os.path.exists(file_path) and not os.path.isdir(file_path):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+
 
 
 if __name__ == "__main__":
