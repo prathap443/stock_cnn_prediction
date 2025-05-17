@@ -817,8 +817,7 @@ def serve_react(path):
     Serve React app files or API endpoints
     """
     # If this is an API endpoint, let Flask continue to the next handler
-    if path.startswith('api/'):
-        return app.view_functions.get(path)()
+
     
     # First try to serve the exact file
     if path and os.path.exists(os.path.join(app.static_folder, path)):
