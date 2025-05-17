@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger('stock_analysis_webapp')
 
 # Initialize Flask app with static and template folders
-app = Flask(__name__, static_folder="static/build", template_folder="templates")
+app = Flask(__name__, static_folder="static/build", static_url_path='/', template_folder="templates")
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
@@ -813,28 +813,15 @@ def health_check():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
-    """
-    Serve React app files or API endpoints
-    """
-    # If this is an API endpoint, let Flask continue to the next handler
     if path.startswith('api/'):
-        return 
-    
-    # Check for specific static file paths
-    if path.startswith('static/'):
-        file_path = path.replace('static/', '', 1)
-        response = send_from_directory(app.static_folder, file_path)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
-    
-    # For all other paths, serve index.html
-    response = send_from_directory(app.static_folder, 'index.html')
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+        return "API route", 404  # Avoid blank response that breaks things
+
+    file_path = os.path.join(app.static_folder, path)
+    if os.path.exists(file_path):
+        return send_from_directory(app.static_folder, path)
+
+    return send_from_directory(app.static_folder, 'index.html')
+
 
 @app.route('/static/js/<path:filename>')
 def serve_js(filename):
