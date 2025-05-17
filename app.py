@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger('stock_analysis_webapp')
 
 # Initialize Flask app with static and template folders
-app = Flask(__name__, static_folder="static/build", static_url_path='/', template_folder="templates")
+app = Flask(__name__, static_folder="static/build", static_url_path="", template_folder="templates")
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
@@ -814,7 +814,7 @@ def health_check():
 @app.route('/<path:path>')
 def serve_react(path):
     if path.startswith('api/'):
-        return "API route", 404  # Avoid blank response that breaks things
+        return "Not a static route", 404
 
     file_path = os.path.join(app.static_folder, path)
     if os.path.exists(file_path):
@@ -1135,6 +1135,7 @@ def retrain_model():
         return jsonify({"success": True, "message": "Model retrained successfully."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
