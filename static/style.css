@@ -1,0 +1,610 @@
+/* === Root Theme Variables === */
+:root {
+  --bg-color: #f8f9fc;
+  --card-bg: #ffffff;
+  --text-color: #333;
+  --muted-color: #666;
+  --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  --chart-color: rgba(75, 192, 192, 1);
+  --border-color: rgba(230, 230, 230, 0.8);
+  --hover-bg: #f8f9fc;
+  --buy-gradient: linear-gradient(145deg, #34C759, #1A7431);
+  --hold-gradient: linear-gradient(145deg, #FF9500, #CC4D00);
+  --sell-gradient: linear-gradient(145deg, #FF3B30, #A61C1C);
+}
+
+/* === Dark Theme Overrides === */
+[data-theme="dark"] {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-color: #f0f0f0;
+  --muted-color: #aaa;
+  --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  --chart-color: rgba(75, 192, 192, 0.8);
+  --border-color: rgba(70, 70, 70, 0.8);
+  --hover-bg: #252525;
+
+  .modal-body .col-md-4 {
+    background: #2a2a2a; /* Darker background for dark mode */
+  }
+}
+
+/* === Body === */
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* === Fade-in Animation === */
+.fade-in {
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === Chart Fade-in Animation Inside Modal === */
+.fade-in-chart {
+  animation: fadeInChart 0.6s ease forwards;
+}
+
+@keyframes fadeInChart {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* === Header === */
+.display-5 {
+  font-weight: 600;
+}
+
+/* === Theme Toggle === */
+.theme-toggle {
+  border-radius: 12px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-2px);
+}
+
+.theme-icon {
+  font-size: 1.1rem;
+}
+
+.toggle-theme-btn img, .toggle-theme-btn svg {
+  filter: drop-shadow(0 0 2px rgba(255,255,255,0.6));
+}
+
+/* === Logout Button === */
+.logout-button a {
+    background: #ff4d4d;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+
+.logout-button a:hover {
+    background: #e60000;
+}
+
+/* === Top Right Buttons === */
+.top-right-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    position: absolute;
+    top: 20px;
+    right: 30px;
+}
+
+/* === Adjust Top Right Buttons on Smaller Screens === */
+@media screen and (max-width: 768px) {
+    .top-right-buttons {
+        position: static;
+        align-items: center;
+        margin: 10px auto;
+        flex-direction: row;
+        justify-content: center;
+    }
+
+    .logout-button a,
+    .theme-toggle button {
+        font-size: 0.9rem;
+        padding: 8px 14px;
+    }
+}
+
+/* === Recommendation Boxes === */
+.recommendation-box {
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+}
+
+.recommendation-box h5 {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.recommendation-box h3 {
+  font-weight: 700;
+  margin: 0;
+}
+
+.buy-box {
+  background: var(--buy-gradient);
+  color: white;
+}
+
+.hold-box {
+  background: var(--hold-gradient);
+  color: white;
+}
+
+.sell-box {
+  background: var(--sell-gradient);
+  color: white;
+}
+
+.recommendation-box:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.recommendation-box.active {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  border: 2px solid white;
+}
+
+/* === Search and Filters === */
+.search-container {
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-color);
+}
+
+.custom-select {
+  height: 45px;
+  border-radius: 8px;
+  border-color: var(--border-color);
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.refresh-btn {
+  height: 45px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.refresh-icon {
+  font-size: 1.1rem;
+}
+
+/* === Stock Cards === */
+.stock-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px var(--border-color), var(--card-shadow);
+}
+
+.stock-card:hover {
+  transform: translateY(-5px);
+  border: 2px solid var(--chart-color);
+  box-shadow: 0 15px 30px rgba(75, 192, 192, 0.4);
+}
+
+/* === Footer Hover === */
+.stock-card .card-footer:hover {
+  background-color: var(--hover-bg);
+  text-decoration: underline;
+}
+
+.card-header {
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.symbol-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.symbol-container h5 {
+  margin: 0;
+  font-weight: 700;
+}
+
+.badge {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.bg-success {
+  background-color: #34C759 !important;
+}
+
+.bg-warning {
+  background-color: #FF9500 !important;
+}
+
+.bg-danger {
+  background-color: #FF3B30 !important;
+}
+
+/* === Card Body === */
+.card-body {
+  padding: 15px;
+  flex-grow: 1;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 15px;
+}
+
+.current-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.change {
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* === Chart Inside Home Page Cards === */
+.chart-container {
+  margin: 10px 0;
+  height: 100px; /* smaller for tiles */
+  width: 100%;
+  position: relative;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* === Chart Inside Modal (View Details) === */
+.modal .chart-container {
+  margin: 10px 0 20px 0;
+  height: 400px; /* Adjusted height to better fit the layout */
+  width: 100%;
+  max-width: 100%; /* Ensure it uses full width */
+  position: relative;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.modal .chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important; /* Ensure canvas stretches fully */
+  object-fit: contain;
+  display: block; /* Fix for canvas alignment */
+  margin: 0 auto;
+}
+
+/* === Sentiment === */
+.sentiment-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.sentiment-label {
+  color: var(--muted-color);
+}
+
+/* === Card Footer === */
+.card-footer {
+  padding: 12px 15px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sector-badge {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  color: var(--muted-color);
+}
+
+.view-details {
+  color: #007bff;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* === Stock Modal === */
+.modal-content {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border-radius: 16px;
+  border: none;
+  box-shadow: var(--card-shadow);
+  width: 100%;
+  overflow: visible !important;
+}
+
+/* === Adjust Modal Width for Larger Screens === */
+.modal-dialog {
+  max-width: 98%; /* Use almost the full screen width */
+  margin: 0.5rem auto; /* Further reduced margin to maximize width */
+}
+
+@media (max-width: 768px) {
+  .modal-dialog {
+    max-width: 100%; /* Full width on mobile */
+    margin: 0;
+  }
+}
+
+/* === Modal Body === */
+.modal-body {
+  padding: 0.5rem; /* Further reduced padding */
+  display: flex;
+  flex-direction: column; /* Stack chart and news vertically */
+  gap: 10px;
+  width: 100%;
+}
+
+.modal-body .row:first-child {
+  display: flex;
+  flex-direction: row; /* Chart and stats side by side */
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%; /* Ensure the row takes full width */
+  margin: 0; /* Remove default row margins */
+}
+
+.modal-body .col-md-8 {
+  flex: 7; /* Chart takes maximum space */
+  min-width: 0; /* Prevent overflow */
+  padding: 0; /* Remove padding to maximize chart width */
+}
+
+.modal-body .col-md-4 {
+  flex: 1; /* Stats takes less space */
+  max-width: 250px; /* Keep stats compact */
+  background: #f8f9fa; /* Light background for card-like appearance */
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Space between stats items */
+}
+
+.modal-body .col-md-4 h4 {
+  font-size: 1.25rem;
+  margin-bottom: 5px;
+}
+
+.modal-body .col-md-4 p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.modal-body .col-md-4 .price-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modal-body .col-md-4 .price-container span {
+  font-size: 1.1rem;
+}
+
+.modal-body .col-md-4 hr {
+  margin: 10px 0;
+  border-color: var(--border-color);
+}
+
+.modal-body .col-md-4 .stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-body .col-md-4 .stat-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.modal-body .col-md-4 .stat-item small {
+  color: var(--muted-color);
+}
+
+.modal-body .col-md-4 .prediction-container {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.9rem;
+}
+
+/* === News Section === */
+.modal-body .news-container {
+  margin-top: 20px;
+  width: 100%; /* Ensure news section takes full width */
+  padding: 0 10px; /* Add minimal padding for news section */
+}
+
+.modal-body .news-container .news-item {
+  margin-bottom: 10px;
+}
+
+.modal-body .news-container .news-item h6 {
+  font-size: 1rem;
+  margin-bottom: 5px;
+}
+
+.modal-body .news-container .news-item p {
+  font-size: 0.85rem;
+  color: var(--muted-color);
+  margin: 0;
+}
+
+.modal-body .news-container .news-item a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.modal-body .news-container .news-item a:hover {
+  text-decoration: underline;
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+  padding: 0.5rem;
+}
+
+/* === Chart Modal Close Button === */
+.chart-close-btn {
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.chart-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-body .row:first-child {
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  }
+
+  .modal-body .col-md-8,
+  .modal-body .col-md-4 {
+    flex: 1 1 100%; /* Stack vertically on mobile */
+    max-width: 100%; /* Use full width on mobile */
+  }
+
+  .modal-body .col-md-4 {
+    margin-top: 20px; /* Add spacing when stacked */
+  }
+}
+
+/* === Logo Carousel === */
+.logo-carousel {
+  overflow: hidden;
+  width: 100%;
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 20px;
+  padding: 10px 0;
+  position: relative;
+}
+
+.logo-track {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  animation: scrollLogos 25s linear infinite;
+  padding-left: 0; /* very important */
+  margin-left: 0;  /* remove margin left */
+}
+
+.logo-track img {
+  height: 40px;
+  margin: 0 20px;
+  object-fit: contain;
+  filter: grayscale(30%);
+  transition: all 0.3s ease;
+}
+
+.logo-track img:first-child {
+  margin-left: 10px; /* optional tiny space for first logo */
+}
+
+.logo-track img:hover {
+  filter: none;
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .logo-track img {
+  filter: brightness(1.8) invert(1) drop-shadow(0 0 2px rgba(255,255,255,0.4));
+}
+
+@keyframes scrollLogos {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* === Mobile === */
+@media (max-width: 768px) {
+  .logo-track img {
+    height: 30px;
+    margin: 0 10px;
+  }
+}

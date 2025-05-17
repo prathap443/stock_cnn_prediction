@@ -1,0 +1,32 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Poppins', sans-serif;
+  }
+  
+  .login-background {
+    background: url('/static/stock_background.jpg') no-repeat center center;
+    background-size: cover;
+    height: calc(100vh - 80px);
+  }
+  
+  .login-card {
+    background: rgba(255, 255, 255, 0.95);
+    max-width: 400px;
+    width: 100%;
+  }
+  
+  h1 {
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  
+  p {
+    color: #555;
+  }
+  
+  footer {
+    font-size: 0.9rem;
+  }
+  

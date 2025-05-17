@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stock Analytics - Prathap's Analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="display-5 mb-1">📈 Stock Analytics - Prathap's Analysis</h1>
+        <p class="text-muted">Real-time analysis of top market performers</p>
+        <div class="text-end small text-muted" id="lastUpdated"></div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary theme-toggle" onclick="toggleTheme()">
+          <span class="theme-icon">🌓</span> Toggle Theme
+        </button>
+        <div class="logout-button">
+          <a href="/logout" class="btn btn-outline-danger">Logout</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Google Sign-In Section -->
+    <div class="mb-4 text-center">
+      <div id="g_id_onload"
+      data-client_id="534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleusercontent.com"
+      data-login_uri="https://stock-cnn-prediction.onrender.com/callback"
+      data-auto_prompt="false">
+ </div>
+ 
+      <div class="g_id_signin"
+           data-type="standard"
+           data-size="large"
+           data-theme="outline"
+           data-text="sign_in_with"
+           data-shape="rectangular"
+           data-logo_alignment="left">
+      </div>
+    </div>
+
+    <div class="row text-center mb-3">
+      <div class="col-md-4">
+        <div id="buyBox" class="p-3 buy-box rounded recommendation-box" onclick="filterByRecommendation('BUY')">
+          <h5>BUY</h5>
+          <h3 id="buyCount">0</h3>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div id="holdBox" class="p-3 hold-box rounded recommendation-box" onclick="filterByRecommendation('HOLD')">
+          <h5>HOLD</h5>
+          <h3 id="holdCount">0</h3>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div id="sellBox" class="p-3 sell-box rounded recommendation-box" onclick="filterByRecommendation('SELL')">
+          <h5>SELL</h5>
+          <h3 id="sellCount">0</h3>
+        </div>
+      </div>
+    </div>
+    <div class="row text-center mb-4">
+      <div class="col-12">
+        <button id="resetFilters" class="btn btn-secondary btn-sm">Reset Filters</button>
+      </div>
+    </div>
+
+    <!-- Moving Logos Carousel -->
+    <div class="logo-carousel my-4">
+      <div class="logo-track">
+        <img src="/static/logos/apple.png" alt="Apple">
+        <img src="/static/logos/google.png" alt="Google">
+        <img src="/static/logos/tesla.png" alt="Tesla">
+        <img src="/static/logos/nvidia.png" alt="Nvidia">
+        <img src="/static/logos/meta.png" alt="Meta">
+        <img src="/static/logos/amazon.png" alt="Amazon">
+        <img src="/static/logos/intel.png" alt="Intel">
+        <img src="/static/logos/amd.png" alt="AMD">
+        <img src="/static/logos/netflix.png" alt="Netflix">
+        <img src="/static/logos/google.png" alt="Google" />
+        <img src="/static/logos/tesla.png" alt="Tesla" />
+        <img src="/static/logos/nvidia.png" alt="Nvidia" />
+        <img src="/static/logos/meta.png" alt="Meta" />
+        <img src="/static/logos/amazon.png" alt="Amazon" />
+        <img src="/static/logos/intel.png" alt="Intel" />
+        <img src="/static/logos/amd.png" alt="AMD" />
+        <img src="/static/logos/netflix.png" alt="Netflix" />
+        <img src="/static/logos/apple.png" alt="Apple">
+        <img src="/static/logos/google.png" alt="Google">
+        <img src="/static/logos/tesla.png" alt="Tesla">
+        <img src="/static/logos/nvidia.png" alt="Nvidia">
+        <img src="/static/logos/meta.png" alt="Meta">
+        <img src="/static/logos/amazon.png" alt="Amazon">
+        <img src="/static/logos/intel.png" alt="Intel">
+        <img src="/static/logos/amd.png" alt="AMD">
+        <img src="/static/logos/netflix.png" alt="Netflix">
+        <img src="/static/logos/google.png" alt="Google" />
+        <img src="/static/logos/tesla.png" alt="Tesla" />
+        <img src="/static/logos/nvidia.png" alt="Nvidia" />
+        <img src="/static/logos/meta.png" alt="Meta" />
+        <img src="/static/logos/amazon.png" alt="Amazon" />
+        <img src="/static/logos/intel.png" alt="Intel" />
+        <img src="/static/logos/amd.png" alt="AMD" />
+        <img src="/static/logos/netflix.png" alt="Netflix" />
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4 fade-in">
+      <div class="col-md-4">
+        <div class="search-container">
+          <input type="text" class="form-control" placeholder="Search stocks..." id="stockSearch" />
+          <span class="search-icon">🔍</span>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <select class="form-select custom-select" id="sectorFilter">
+          <option value="">All Sectors</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button id="refreshBtn" class="btn btn-primary w-100 refresh-btn">
+          <span class="refresh-icon">🔄</span> Refresh
+        </button>
+      </div>
+    </div>
+
+    <div id="dashboardContent" class="row g-4"></div>
+  </div>
+
+  <!-- Stock Detail Modal -->
+  <div class="modal fade" id="stockDetailModal" tabindex="-1" aria-labelledby="stockDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="stockDetailModalLabel">Stock Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="stockDetailModalBody">
+          <div class="row">
+            <div class="col-md-8">
+              <div class="chart-container">
+                <canvas id="detailChart" height="300"></canvas>
+              </div>
+              <div class="btn-group btn-group-sm mt-2 period-selector" role="group">
+                <button type="button" class="btn btn-outline-primary" onclick="updateDetailChart('1D')">1D</button>
+                <button type="button" class="btn btn-outline-primary" onclick="updateDetailChart('1W')">1W</button>
+                <button type="button" class="btn btn-outline-primary active" onclick="updateDetailChart('1M')">1M</button>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="stats-container">
+                <h4 id="detailSymbol"></h4>
+                <p id="detailName" class="text-muted"></p>
+                <div class="price-container">
+                  <span id="detailPrice" class="detail-price"></span>
+                  <span id="detailChange" class="detail-change"></span>
+                </div>
+                <hr>
+                <h5>Key Statistics</h5>
+                <div class="stats-grid">
+                  <div class="stat-item">
+                    <small class="text-muted">RSI</small>
+                    <div id="detailRSI"></div>
+                  </div>
+                  <div class="stat-item">
+                    <small class="text-muted">MACD</small>
+                    <div id="detailMACD"></div>
+                  </div>
+                  <div class="stat-item">
+                    <small class="text-muted">Sentiment</small>
+                    <div id="detailSentiment"></div>
+                  </div>
+                  <div class="stat-item">
+                    <small class="text-muted">Recommendation</small>
+                    <div id="detailRecommendation"></div>
+                  </div>
+                </div>
+                
+                <div class="mt-3">
+                  <h5>Live Prediction</h5>
+                  <div id="detailPrediction" class="prediction-container"></div>
+                </div>
+                <div class="mt-4">
+                  <h5>Trade Now</h5>
+                  <div class="input-group mb-2">
+                    <input type="number" id="tradeQty" class="form-control" placeholder="Quantity (e.g. 5)" min="1" />
+                    <button class="btn btn-success" onclick="placeTrade('buy')">Buy</button>
+                    <button class="btn btn-danger" onclick="placeTrade('sell')">Sell</button>
+                  </div>
+                  <div id="tradeStatus" class="small text-muted"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row mt-4">
+            <div class="col-12">
+              <h5>Recent News</h5>
+              <div id="detailNews" class="news-container"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let allStocks = [];
+    let selectedRecommendation = '';
+    let selectedTimePeriods = {};
+    let currentDetailSymbol = '';
+    
+    async function loadDashboard() {
+      try {
+        document.getElementById("dashboardContent").innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        
+        const response = await fetch('/api/stocks?t=' + Date.now());
+        const data = await response.json();
+        if (data && data.stocks) {
+          allStocks = data.stocks;
+          document.getElementById("dashboardContent").innerHTML = '';
+          renderCounts(data.summary);
+          renderStocks(allStocks);
+          populateSectorFilter(allStocks);
+          document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated}`;
+        } else {
+          document.getElementById("dashboardContent").innerHTML = '<p class="text-danger">No data available.</p>';
+        }
+      } catch (error) {
+        document.getElementById("dashboardContent").innerHTML = `<p class="text-danger">Error loading data: ${error}</p>`;
+      }
+    }
+
+    function renderCounts(summary) {
+      document.getElementById("buyCount").innerText = summary.BUY || 0;
+      document.getElementById("holdCount").innerText = summary.HOLD || 0;
+      document.getElementById("sellCount").innerText = summary.SELL || 0;
+    }
+
+    function renderStocks(stocks) {
+      let html = '';
+      stocks.forEach((stock, i) => {
+        const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
+        const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
+        const chartId = `chart-${i}`;
+        
+        html += `
+          <div class="col-md-6 col-lg-4 mb-4">
+            <div class="stock-card" onclick="window.location.href='/trade/${stock.symbol}'">
+              <div class="card-header">
+                <div class="symbol-container">
+                  <h5>${stock.symbol}</h5>
+                  <span class="badge ${getRecommendationClass(stock.recommendation)}">${stock.recommendation}</span>
+                </div>
+                <small class="text-muted">${stock.name}</small>
+              </div>
+              <div class="card-body">
+                <div class="price-row">
+                  <div class="current-price">$${stock.current_price?.toFixed(2) || 'N/A'}</div>
+                  <div class="change ${trendColor}">
+                    ${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%
+                  </div>
+                </div>
+                <div class="chart-container">
+                  <canvas id="${chartId}" height="100"></canvas>
+                </div>
+                <div class="sentiment-row">
+                  <span class="sentiment-label">Sentiment:</span>
+                  <span class="sentiment-value">${stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A'}</span>
+                </div>
+              </div>
+              <div class="card-footer">
+                <span class="sector-badge">${stock.sector}</span>
+                <span class="view-details">View Details</span>
+              </div>
+            </div>
+          </div>`;
+      });
+      
+      document.getElementById("dashboardContent").innerHTML = html;
+      
+      stocks.forEach((stock, i) => {
+        renderStockChart(`chart-${i}`, stock.history_1d || [], '1D');
+      });
+    }
+    
+    function getRecommendationClass(recommendation) {
+      switch(recommendation) {
+        case 'BUY': return 'bg-success';
+        case 'SELL': return 'bg-danger';
+        default: return 'bg-warning';
+      }
+    }
+
+    async function showStockDetail(symbol) {
+      try {
+        currentDetailSymbol = symbol;
+        const stock = allStocks.find(s => s.symbol === symbol);
+        
+        if (!stock) {
+          alert(`Stock data for ${symbol} not found`);
+          return;
+        }
+        
+        // Update modal title and basic info
+        document.getElementById('stockDetailModalLabel').innerText = `${symbol} - ${stock.name}`;
+        document.getElementById('detailSymbol').innerText = symbol;
+        document.getElementById('detailName').innerText = stock.name;
+        document.getElementById('detailPrice').innerText = `$${stock.current_price?.toFixed(2) || 'N/A'}`;
+        
+        const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
+        const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
+        document.getElementById('detailChange').innerText = `${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%`;
+        document.getElementById('detailChange').className = `detail-change ${trendColor}`;
+        
+        // Update technical indicators
+        document.getElementById('detailRSI').innerText = stock.technical_indicators?.rsi || 'N/A';
+        document.getElementById('detailMACD').innerText = stock.technical_indicators?.macd || 'N/A';
+        document.getElementById('detailSentiment').innerText = stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A';
+        
+        const recElement = document.getElementById('detailRecommendation');
+        recElement.innerText = stock.recommendation;
+        recElement.className = '';
+        recElement.classList.add(stock.recommendation === 'BUY' ? 'text-success' : 
+                                stock.recommendation === 'SELL' ? 'text-danger' : 'text-warning');
+        
+        // Update news
+        renderDetailNews(stock.news_articles);
+        
+        // Get live prediction
+        getLiveDetailPrediction(symbol);
+        
+        // Show 1M chart by default
+        updateDetailChart('1M');
+        
+        // Reset trade status
+        document.getElementById('tradeStatus').innerText = '';
+        document.getElementById('tradeQty').value = '';
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('stockDetailModal'));
+        modal.show();
+      } catch (error) {
+        console.error(`Error showing details for ${symbol}:`, error);
+        alert(`Error loading details: ${error}`);
+      }
+    }
+    
+    async function updateDetailChart(period) {
+      if (!currentDetailSymbol) return;
+      
+      // Update button active state
+      document.querySelectorAll('.period-selector .btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
+      
+      try {
+        const response = await fetch(`/api/stock_history/${currentDetailSymbol}/${period}`);
+        const historyData = await response.json();
+        
+        if (historyData && historyData.length > 0) {
+          if (historyData[0].error) {
+            document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${historyData[0].error}</p>`;
+          } else {
+            renderDetailStockChart(historyData, period);
+          }
+        } else {
+          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">No data available for ${period}.</p>`;
+        }
+      } catch (error) {
+        console.error(`Error updating chart for ${currentDetailSymbol}:`, error);
+        document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">Error loading chart: ${error}</p>`;
+      }
+    }
+    
+    function renderDetailStockChart(historyData, period) {
+      const ctx = document.getElementById('detailChart').getContext('2d');
+      if (ctx.chart) {
+        ctx.chart.destroy();
+      }
+      
+      const dates = historyData.map(item => item.date);
+      const prices = historyData.map(item => item.close);
+      const isIntraday = period === '1D';
+      
+      ctx.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Price',
+            data: prices,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          interaction: {
+            mode: 'nearest',
+            intersect: false
+          },
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              callbacks: {
+                label: function(context) {
+                  return `$${context.raw.toFixed(3)}`;
+                },
+                title: function(context) {
+                  return context[0].label;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                maxTicksLimit: isIntraday ? 8 : 10,
+                autoSkip: true,
+                callback: function(value, index, values) {
+                  if (isIntraday) {
+                    const date = new Date(dates[index]);
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  } else {
+                    const date = new Date(dates[index]);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+                  }
+                }
+              },
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              beginAtZero: false,
+              grid: {
+                color: 'rgba(200, 200, 200, 0.1)'
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    function renderDetailNews(articles) {
+      const newsContainer = document.getElementById('detailNews');
+      
+      if (!articles || articles.length === 0) {
+        newsContainer.innerHTML = '<p class="text-muted">No recent news available.</p>';
+        return;
+      }
+      
+      let newsHtml = '';
+      articles.forEach(article => {
+        newsHtml += `
+          <div class="news-item">
+            <h6><a href="${article.link}" target="_blank">${article.title}</a></h6>
+            <p class="small text-muted">Published by ${article.publisher} on ${article.published_at}</p>
+          </div>`;
+      });
+      
+      newsContainer.innerHTML = newsHtml;
+    }
+    
+    async function getLiveDetailPrediction(symbol) {
+      try {
+        const predictionContainer = document.getElementById('detailPrediction');
+        predictionContainer.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div> Getting prediction...';
+        
+        const response = await fetch(`/api/live_prediction/${symbol}`);
+        const data = await response.json();
+        
+        if (data.error) {
+          predictionContainer.innerText = `Error: ${data.error}`;
+          return;
+        }
+        
+        const trendColor = data.percent_change_today >= 0 ? 'text-success' : 'text-danger';
+        const trendIcon = data.percent_change_today >= 0 ? '↑' : '↓';
+
+        predictionContainer.innerHTML = `
+          <div class="prediction-badge ${data.recommendation === 'BUY' ? 'prediction-buy' : 
+                                         data.recommendation === 'SELL' ? 'prediction-sell' : 
+                                         'prediction-hold'}">${data.recommendation}</div>
+          <div class="prediction-details">
+            <div class="${trendColor}">${trendIcon} ${Math.abs(data.percent_change_today).toFixed(2)}% today</div>
+            <div class="technical mt-1">
+              <span>RSI: ${data.technical_indicators.rsi}</span> | 
+              <span>MACD: ${data.technical_indicators.macd}</span>
+            </div>
+            <div class="small text-muted">Updated: ${data.last_updated}</div>
+          </div>`;
+      } catch (error) {
+        document.getElementById('detailPrediction').innerText = `Error fetching live prediction: ${error}`;
+      }
+    }
+
+    async function placeTrade(action) {
+      const qty = document.getElementById('tradeQty').value;
+      const statusEl = document.getElementById('tradeStatus');
+      statusEl.innerText = 'Placing order...';
+
+      if (!qty || parseInt(qty) <= 0) {
+        statusEl.innerText = '❌ Please enter a valid quantity.';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: currentDetailSymbol,
+            quantity: parseInt(qty)
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+          statusEl.innerText = `❌ ${result.error}`;
+        } else {
+          statusEl.innerText = `✅ ${action.toUpperCase()} order placed for ${qty} shares.`;
+        }
+      } catch (err) {
+        statusEl.innerText = `❌ Error: ${err.message}`;
+      }
+    }
+
+    async function renderStockChart(canvasId, historyData, period) {
+      if (!historyData || historyData.length === 0 || historyData[0].error) {
+        return;
+      }
+      
+      const ctx = document.getElementById(canvasId)?.getContext('2d');
+      if (!ctx) return;
+      
+      if (ctx.chart) {
+        ctx.chart.destroy();
+      }
+      
+      const dates = historyData.map(item => item.date);
+      const prices = historyData.map(item => item.close);
+      
+      ctx.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [{
+            data: prices,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1.5,
+            tension: 0.3,
+            pointRadius: 0,
+            fill: false
+          }]
+        },
+        options: {
+          interaction: {
+            mode: 'nearest',
+            intersect: false
+          },
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              callbacks: {
+                label: function(context) {
+                  return `$${context.raw.toFixed(2)}`;
+                },
+                title: function(context) {
+                  return context[0].label;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { display: false },
+            y: { display: false }
+          },
+          elements: {
+            line: {
+              tension: 0.4
+            }
+          }
+        }
+      });
+    }
+
+    function populateSectorFilter(stocks) {
+      const sectorFilter = document.getElementById("sectorFilter");
+      sectorFilter.innerHTML = '<option value="">All Sectors</option>';
+      
+      const sectors = [...new Set(stocks.map(stock => stock.sector))].sort();
+      sectors.forEach(sector => {
+        const option = document.createElement("option");
+        option.value = sector;
+        option.textContent = sector;
+        sectorFilter.appendChild(option);
+      });
+    }
+
+    function filterStocks() {
+      const searchTerm = document.getElementById("stockSearch").value.toLowerCase();
+      const selectedSector = document.getElementById("sectorFilter").value;
+      
+      const filteredStocks = allStocks.filter(stock => {
+        const matchesSearch = stock.symbol.toLowerCase().includes(searchTerm) || 
+                             (stock.name && stock.name.toLowerCase().includes(searchTerm));
+        const matchesSector = !selectedSector || stock.sector === selectedSector;
+        const matchesRecommendation = !selectedRecommendation || stock.recommendation === selectedRecommendation;
+        
+        return matchesSearch && matchesSector && matchesRecommendation;
+      });
+      
+      renderStocks(filteredStocks);
+    }
+
+    function filterByRecommendation(recommendation) {
+  if (selectedRecommendation === recommendation) {
+    selectedRecommendation = '';
+  } else {
+    selectedRecommendation = recommendation;
+  }
+  
+  document.querySelectorAll('.recommendation-box').forEach(box => {
+    box.classList.remove('active');
+  });
+  
+  if (selectedRecommendation) {
+    document.getElementById(`${selectedRecommendation.toLowerCase()}Box`).classList.add('active');
+  }
+  
+  filterStocks();
+}
+
+    function resetFilters() {
+      selectedRecommendation = '';
+      selectedTimePeriods = {};
+      document.getElementById("stockSearch").value = '';
+      document.getElementById("sectorFilter").value = '';
+      
+      document.querySelectorAll('.recommendation-box').forEach(box => {
+        box.classList.remove('active');
+      });
+      
+      filterStocks();
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const newTheme = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const saved = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', saved);
+      
+      loadDashboard();
+      
+      document.getElementById("stockSearch").addEventListener("input", filterStocks);
+      document.getElementById("sectorFilter").addEventListener("change", filterStocks);
+      document.getElementById("resetFilters").addEventListener("click", resetFilters);
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", async () => {
+      const refreshBtn = document.getElementById("refreshBtn");
+      refreshBtn.disabled = true;
+      refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Refreshing...';
+      
+      try {
+        const res = await fetch('/api/refresh', { method: 'POST' });
+        const json = await res.json();
+        
+        if (json.success) {
+          selectedRecommendation = '';
+          selectedTimePeriods = {};
+          document.querySelectorAll('.recommendation-box').forEach(box => {
+            box.classList.remove('active');
+          });
+          
+          await loadDashboard();
+        } else {
+          alert("Refresh failed: " + json.error);
+        }
+      } catch (err) {
+        alert("Error refreshing data: " + err.message);
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '<span class="refresh-icon">🔄</span> Refresh';
+      }
+    });
+  </script>
+</body>
+</html>
