@@ -823,18 +823,34 @@ def serve_react(path):
     # Check for specific static file paths
     if path.startswith('static/'):
         file_path = path.replace('static/', '', 1)
-        return send_from_directory(app.static_folder, file_path)
+        response = send_from_directory(app.static_folder, file_path)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     # For all other paths, serve index.html
-    return send_from_directory(app.static_folder, 'index.html')
+    response = send_from_directory(app.static_folder, 'index.html')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/static/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory(os.path.join(app.static_folder, 'static/js'), filename)
+    response = send_from_directory(os.path.join(app.static_folder, 'static/js'), filename)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/static/css/<path:filename>')
 def serve_css(filename):
-    return send_from_directory(os.path.join(app.static_folder, 'static/css'), filename)
+    response = send_from_directory(os.path.join(app.static_folder, 'static/css'), filename)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/login')
 def login():
