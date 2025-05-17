@@ -1137,11 +1137,14 @@ def retrain_model():
         return jsonify({"success": False, "error": str(e)})
 
 
+# Run stock analysis at startup ONLY on Render and if file is missing
+if os.environ.get("RENDER") == "true" and not os.path.exists('data/stock_analysis.json'):
+    try:
+        logger.info("Running analyze_all_stocks() on startup (Render detected)")
+        analyze_all_stocks()
+    except Exception as e:
+        logger.error(f"Initial analysis error on Render: {str(e)}")
+
 if __name__ == "__main__":
-    #if not os.path.exists('data/stock_analysis.json'):
-      #  try:
-      #      analyze_all_stocks()
-      #  except Exception as e:
-        #    logger.error(f"Initial analysis error: {str(e)}")
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
