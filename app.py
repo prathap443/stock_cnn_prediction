@@ -813,26 +813,21 @@ def health_check():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
-    """
-    Serve React app files or API endpoints
-    """
-    # If this is an API endpoint, let Flask continue to the next handler
-
-    
-    # First try to serve the exact file
+    # Try to serve static files
     if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    
-    # For all other routes, serve the React app's index.html
-    if os.path.exists(os.path.join(app.static_folder, "index.html")):
+
+    # Fallback to index.html
+    index_path = os.path.join(app.static_folder, "index.html")
+    if os.path.exists(index_path):
         return send_from_directory(app.static_folder, "index.html")
     else:
         return jsonify({
             "error": "React app not found",
             "static_folder": app.static_folder,
-            "static_url_path": app.static_url_path,
-            "file_exists": os.path.exists(os.path.join(app.static_folder, "index.html"))
+            "file_exists": os.path.exists(index_path)
         }), 404
+
 
 @app.route('/login')
 def login():
