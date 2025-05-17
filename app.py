@@ -787,19 +787,53 @@ def analyze_all_stocks():
         logger.error(f"Error in analyze_all_stocks: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve_react(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
-        if not os.path.exists(os.path.join(app.static_folder, "index.html")):
-            return jsonify({"error": "React app not found. Ensure index.html exists in the static/build directory."}), 404
-        return send_from_directory(app.static_folder, "index.html")
-@app.route("/static/<path:filename>")
-def serve_static(filename):
-    return send_from_directory(os.path.join(app.static_folder, "static"), filename)
+@app.route('/api/health')
+def health_check():
+    """
+    Health check endpoint to verify the API is working
+    """
+    alpaca_key = os.getenv("ALPACA_API_KEY")
+    alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+    
+    return jsonify({
+        "status": "healthy",
+        "api_keys": {
+            "alpaca_api_key": "✅ Configured" if alpaca_key else "❌ Missing",
+            "alpaca_secret_key": "✅ Configured" if alpaca_secret else "❌ Missing"
+        },
+        "static_folder": app.static_folder,
+        "static_url_path": app.static_url_path,
+        "template_folder": app.template_folder,
+        "files": {
+            "index_exists": os.path.exists(os.path.join(app.static_folder, "index.html")),
+            "asset_manifest_exists": os.path.exists(os.path.join(app.static_folder, "asset-manifest.json"))
+        }
+    })
 
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    """
+    Serve React app files or API endpoints
+    """
+    # If this is an API endpoint, let Flask continue to the next handler
+    if path.startswith('api/'):
+        return app.view_functions.get(path)()
+    
+    # First try to serve the exact file
+    if path and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    
+    # For all other routes, serve the React app's index.html
+    if os.path.exists(os.path.join(app.static_folder, "index.html")):
+        return send_from_directory(app.static_folder, "index.html")
+    else:
+        return jsonify({
+            "error": "React app not found",
+            "static_folder": app.static_folder,
+            "static_url_path": app.static_url_path,
+            "file_exists": os.path.exists(os.path.join(app.static_folder, "index.html"))
+        }), 404
 
 @app.route('/login')
 def login():
