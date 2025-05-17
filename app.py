@@ -813,21 +813,28 @@ def health_check():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
-    # Try to serve static files
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
+    """
+    Serve React app files or API endpoints
+    """
+    # If this is an API endpoint, let Flask continue to the next handler
+    if path.startswith('api/'):
+        return 
+    
+    # Check for specific static file paths
+    if path.startswith('static/'):
+        file_path = path.replace('static/', '', 1)
+        return send_from_directory(app.static_folder, file_path)
+    
+    # For all other paths, serve index.html
+    return send_from_directory(app.static_folder, 'index.html')
 
-    # Fallback to index.html
-    index_path = os.path.join(app.static_folder, "index.html")
-    if os.path.exists(index_path):
-        return send_from_directory(app.static_folder, "index.html")
-    else:
-        return jsonify({
-            "error": "React app not found",
-            "static_folder": app.static_folder,
-            "file_exists": os.path.exists(index_path)
-        }), 404
+@app.route('/static/js/<path:filename>')
+def serve_js(filename):
+    return send_from_directory(os.path.join(app.static_folder, 'static/js'), filename)
 
+@app.route('/static/css/<path:filename>')
+def serve_css(filename):
+    return send_from_directory(os.path.join(app.static_folder, 'static/css'), filename)
 
 @app.route('/login')
 def login():
