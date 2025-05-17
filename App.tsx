@@ -1,13 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import TradePage from './pages/TradePage';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/trade/:symbol" element={<TradePage />} />
-        {/* other routes like <Route path="/" element={<Dashboard />} /> */}
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
