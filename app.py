@@ -812,15 +812,12 @@ def health_check():
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve_react(path):
-    if path.startswith('api/'):
-        return "Not a static route", 404
-
-    file_path = os.path.join(app.static_folder, path)
-    if os.path.exists(file_path):
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
-    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.route('/static/js/<path:filename>')
