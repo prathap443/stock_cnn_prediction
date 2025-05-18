@@ -1,17 +1,19 @@
 import {
   BrowserRouter as Router,
   Routes,
-  Route
+  Route,
 } from "react-router-dom";
-import Dashboard from './Dashboard'; // example
+import Dashboard from "./components/Dashboard"; // or your main component
 
 function App() {
   return (
-    <Router basename="/">
+    <Router>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        {/* Add other routes here */}
+        {/* Define other routes as needed */}
       </Routes>
     </Router>
   );
 }
+
+export default App;
