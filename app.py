@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger('stock_analysis_webapp')
 
 # Initialize Flask app with static and template folders
-app = Flask(__name__, static_folder="build", static_url_path="/")
+app = Flask(__name__, static_folder="build", static_url_path="")
 
 app.secret_key = "your_secret_key_here"
 
@@ -811,13 +811,14 @@ def health_check():
         }
     })
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
 def serve(path):
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
-        return send_from_directory(app.static_folder, "index.html")
+        return send_from_directory(app.static_folder, 'index.html')
+
 
 
 

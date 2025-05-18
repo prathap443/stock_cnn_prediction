@@ -1,18 +1,17 @@
-import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Dashboard from "./components/Dashboard";
-import NotFound from "./components/NotFound"; // optional
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route
+} from "react-router-dom";
+import Dashboard from './Dashboard'; // example
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router basename="/">
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        {/* fallback route */}
-        <Route path="*" element={<NotFound />} />
+        {/* Add other routes here */}
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
-
-export default App;
