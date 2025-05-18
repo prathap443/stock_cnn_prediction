@@ -1,14 +1,16 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
-import TradePage from './pages/TradePage';
-import Dashboard from './pages/Dashboard';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Dashboard from './components/Dashboard';
 
 function App() {
   return (
-    <HashRouter>
+    <Router>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/trade/:symbol" element={<TradePage />} />
+        {/* Add fallback route for unknown paths */}
+        <Route path="*" element={<Dashboard />} />
       </Routes>
-    </HashRouter>
+    </Router>
   );
 }
+
+export default App;
