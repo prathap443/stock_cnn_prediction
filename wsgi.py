@@ -39,5 +39,6 @@ def refresh_data_periodically():
 refresh_thread = threading.Thread(target=refresh_data_periodically, daemon=True)
 refresh_thread.start()
 
-# DO NOT run app directly here — Gunicorn will handle it
-# Keep this file clean for WSGI use only
+# Expose the Flask app to Gunicorn
+# DO NOT call app.run() here — Gunicorn uses this object
+application = app

@@ -2,15 +2,20 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
-import Dashboard from "./components/Dashboard"; // or your main component
+import Dashboard from "./components/Dashboard"; // Your main component
+import NotFound from "./components/NotFound"; // Optional: fallback for undefined routes
 
 function App() {
   return (
-    <Router>
+    <Router basename="/">
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        {/* Define other routes as needed */}
+        
+        {/* Optional: fallback for undefined routes */}
+        <Route path="*" element={<Navigate to="/" />} />
+        {/* Or use a custom component: <Route path="*" element={<NotFound />} /> */}
       </Routes>
     </Router>
   );
