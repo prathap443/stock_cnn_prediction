@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger('stock_analysis_webapp')
 
 # Initialize Flask app with static and template folders
-app = Flask(__name__, static_folder="static/build", static_url_path="", template_folder="templates")
+app = Flask(__name__, static_folder="build", static_url_path="")
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
