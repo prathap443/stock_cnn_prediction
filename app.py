@@ -1137,6 +1137,10 @@ def retrain_model():
         return jsonify({"success": True, "message": "Model retrained successfully."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+    
+@app.route('/')
+def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.errorhandler(404)
 def not_found(e):
