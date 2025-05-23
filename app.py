@@ -25,9 +25,8 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('stock_analysis_webapp')
 
-# Initialize Flask app with static and template folders
-app = Flask(__name__, static_folder="build", static_url_path="")
-
+# Initialize Flask app
+app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
@@ -90,8 +89,7 @@ FEATURE_COLUMNS = [
 
 # Create directories
 os.makedirs('data', exist_ok=True)
-os.makedirs('static/build', exist_ok=True)  # Updated to create static/build
-os.makedirs('templates', exist_ok=True)     # Added to create templates directory
+os.makedirs('static', exist_ok=True)
 
 # Stock lists
 base_stocks = [
@@ -788,74 +786,19 @@ def analyze_all_stocks():
         logger.error(f"Error in analyze_all_stocks: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
 
-@app.route('/api/health')
-def health_check():
-    """
-    Health check endpoint to verify the API is working
-    """
-    alpaca_key = os.getenv("ALPACA_API_KEY")
-    alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
-    
-    return jsonify({
-        "status": "healthy",
-        "api_keys": {
-            "alpaca_api_key": "✅ Configured" if alpaca_key else "❌ Missing",
-            "alpaca_secret_key": "✅ Configured" if alpaca_secret else "❌ Missing"
-        },
-        "static_folder": app.static_folder,
-        "static_url_path": app.static_url_path,
-        "template_folder": app.template_folder,
-        "files": {
-            "index_exists": os.path.exists(os.path.join(app.static_folder, "index.html")),
-            "asset_manifest_exists": os.path.exists(os.path.join(app.static_folder, "asset-manifest.json"))
-        }
-    })
-
-
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, "index.html")
-
-
-
-
-
-
-@app.route('/static/js/<path:filename>')
-def serve_js(filename):
-    response = send_from_directory(os.path.join(app.static_folder, 'static/js'), filename)
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
-
-@app.route('/static/css/<path:filename>')
-def serve_css(filename):
-    response = send_from_directory(os.path.join(app.static_folder, 'static/css'), filename)
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+@app.route('/')
+def index():
+    user_info = session.get('user')
+    if user_info:
+        return render_template('index.html', user_name=user_info.get('name', 'User'))
+    return render_template('login.html')
 
 @app.route('/login')
 def login():
     discovery_doc = requests.get(GOOGLE_DISCOVERY_URL).json()
     authorization_endpoint = discovery_doc["authorization_endpoint"]
 
-    # This dynamically constructs the correct redirect URI based on the actual domain
-    redirect_uri = request.host_url.rstrip('/') + url_for("callback")
-
-    request_uri = (
-        f"{authorization_endpoint}"
-        f"?response_type=code"
-        f"&client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri={redirect_uri}"
-        f"&scope=openid%20email%20profile"
-    )
+    request_uri = f"{authorization_endpoint}?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri=https://stock-cnn-prediction.onrender.com/callback&scope=openid%20email%20profile"
 
     return redirect(request_uri)
 
@@ -880,9 +823,8 @@ def callback():
             "picture": idinfo.get('picture')
         }
 
-        # Dynamically redirect back to the domain the user used
-        return redirect(url_for("serve_react", _external=True, _scheme="https"))
-
+        return redirect("https://stock-cnn-prediction.onrender.com/")
+        
     except Exception as e:
         logger.error(f"Error verifying ID token: {str(e)}")
         return jsonify({"error": "Authentication failed"}), 400
@@ -1137,19 +1079,12 @@ def retrain_model():
         return jsonify({"success": True, "message": "Model retrained successfully."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-    
-@app.route('/')
-def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.errorhandler(404)
-def not_found(e):
-    return send_from_directory(app.static_folder, 'index.html')
-
-
-
-
 
 if __name__ == "__main__":
+    if not os.path.exists('data/stock_analysis.json'):
+        try:
+            analyze_all_stocks()
+        except Exception as e:
+            logger.error(f"Initial analysis error: {str(e)}")
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)

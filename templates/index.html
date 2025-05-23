@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-  <base href="./" />
   <meta charset="UTF-8" />
   <title>Stock Analytics - Prathap's Analysis</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="static/style.css" />
-  <link rel="icon" href="static/favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -32,11 +31,10 @@
     <!-- Google Sign-In Section -->
     <div class="mb-4 text-center">
       <div id="g_id_onload"
-      data-client_id="534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleusercontent.com"
-      data-login_uri="https://stock-cnn-prediction.onrender.com/callback"
-      data-auto_prompt="false">
- </div>
- 
+           data-client_id="534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleusercontent.com"
+           data-login_uri="https://www.pratstockprediction.co.uk/callback"
+           data-auto_prompt="false">
+      </div>
       <div class="g_id_signin"
            data-type="standard"
            data-size="large"
@@ -76,40 +74,40 @@
     <!-- Moving Logos Carousel -->
     <div class="logo-carousel my-4">
       <div class="logo-track">
-        <img src="static/logos/apple.png" alt="Apple">
-        <img src="static/logos/google.png" alt="Google">
-        <img src="static/logos/tesla.png" alt="Tesla">
-        <img src="static/logos/nvidia.png" alt="Nvidia">
-        <img src="static/logos/meta.png" alt="Meta">
-        <img src="static/logos/amazon.png" alt="Amazon">
-        <img src="static/logos/intel.png" alt="Intel">
-        <img src="static/logos/amd.png" alt="AMD">
-        <img src="static/logos/netflix.png" alt="Netflix">
-        <img src="static/logos/google.png" alt="Google" />
-        <img src="static/logos/tesla.png" alt="Tesla" />
-        <img src="static/logos/nvidia.png" alt="Nvidia" />
-        <img src="static/logos/meta.png" alt="Meta" />
-        <img src="static/logos/amazon.png" alt="Amazon" />
-        <img src="static/logos/intel.png" alt="Intel" />
-        <img src="static/logos/amd.png" alt="AMD" />
-        <img src="static/logos/netflix.png" alt="Netflix" />
-        <img src="static/logos/apple.png" alt="Apple">
-        <img src="static/logos/google.png" alt="Google">
-        <img src="static/logos/tesla.png" alt="Tesla">
-        <img src="static/logos/nvidia.png" alt="Nvidia">
-        <img src="static/logos/meta.png" alt="Meta">
-        <img src="static/logos/amazon.png" alt="Amazon">
-        <img src="static/logos/intel.png" alt="Intel">
-        <img src="static/logos/amd.png" alt="AMD">
-        <img src="static/logos/netflix.png" alt="Netflix">
-        <img src="static/logos/google.png" alt="Google" />
-        <img src="static/logos/tesla.png" alt="Tesla" />
-        <img src="static/logos/nvidia.png" alt="Nvidia" />
-        <img src="static/logos/meta.png" alt="Meta" />
-        <img src="static/logos/amazon.png" alt="Amazon" />
-        <img src="static/logos/intel.png" alt="Intel" />
-        <img src="static/logos/amd.png" alt="AMD" />
-        <img src="static/logos/netflix.png" alt="Netflix" />
+        <img src="/static/logos/apple.png" alt="Apple">
+        <img src="/static/logos/google.png" alt="Google">
+        <img src="/static/logos/tesla.png" alt="Tesla">
+        <img src="/static/logos/nvidia.png" alt="Nvidia">
+        <img src="/static/logos/meta.png" alt="Meta">
+        <img src="/static/logos/amazon.png" alt="Amazon">
+        <img src="/static/logos/intel.png" alt="Intel">
+        <img src="/static/logos/amd.png" alt="AMD">
+        <img src="/static/logos/netflix.png" alt="Netflix">
+        <img src="/static/logos/google.png" alt="Google" />
+        <img src="/static/logos/tesla.png" alt="Tesla" />
+        <img src="/static/logos/nvidia.png" alt="Nvidia" />
+        <img src="/static/logos/meta.png" alt="Meta" />
+        <img src="/static/logos/amazon.png" alt="Amazon" />
+        <img src="/static/logos/intel.png" alt="Intel" />
+        <img src="/static/logos/amd.png" alt="AMD" />
+        <img src="/static/logos/netflix.png" alt="Netflix" />
+        <img src="/static/logos/apple.png" alt="Apple">
+        <img src="/static/logos/google.png" alt="Google">
+        <img src="/static/logos/tesla.png" alt="Tesla">
+        <img src="/static/logos/nvidia.png" alt="Nvidia">
+        <img src="/static/logos/meta.png" alt="Meta">
+        <img src="/static/logos/amazon.png" alt="Amazon">
+        <img src="/static/logos/intel.png" alt="Intel">
+        <img src="/static/logos/amd.png" alt="AMD">
+        <img src="/static/logos/netflix.png" alt="Netflix">
+        <img src="/static/logos/google.png" alt="Google" />
+        <img src="/static/logos/tesla.png" alt="Tesla" />
+        <img src="/static/logos/nvidia.png" alt="Nvidia" />
+        <img src="/static/logos/meta.png" alt="Meta" />
+        <img src="/static/logos/amazon.png" alt="Amazon" />
+        <img src="/static/logos/intel.png" alt="Intel" />
+        <img src="/static/logos/amd.png" alt="AMD" />
+        <img src="/static/logos/netflix.png" alt="Netflix" />
       </div>
     </div>
 
@@ -188,15 +186,6 @@
                   <h5>Live Prediction</h5>
                   <div id="detailPrediction" class="prediction-container"></div>
                 </div>
-                <div class="mt-4">
-                  <h5>Trade Now</h5>
-                  <div class="input-group mb-2">
-                    <input type="number" id="tradeQty" class="form-control" placeholder="Quantity (e.g. 5)" min="1" />
-                    <button class="btn btn-success" onclick="placeTrade('buy')">Buy</button>
-                    <button class="btn btn-danger" onclick="placeTrade('sell')">Sell</button>
-                  </div>
-                  <div id="tradeStatus" class="small text-muted"></div>
-                </div>
               </div>
             </div>
           </div>
@@ -258,7 +247,7 @@
         
         html += `
           <div class="col-md-6 col-lg-4 mb-4">
-            <div class="stock-card" onclick="window.location.href='/trade/${stock.symbol}'">
+            <div class="stock-card" onclick="showStockDetail('${stock.symbol}')">
               <div class="card-header">
                 <div class="symbol-container">
                   <h5>${stock.symbol}</h5>
@@ -344,10 +333,6 @@
         
         // Show 1M chart by default
         updateDetailChart('1M');
-        
-        // Reset trade status
-        document.getElementById('tradeStatus').innerText = '';
-        document.getElementById('tradeQty').value = '';
         
         // Show the modal
         const modal = new bootstrap.Modal(document.getElementById('stockDetailModal'));
@@ -494,54 +479,22 @@
         }
         
         const trendColor = data.percent_change_today >= 0 ? 'text-success' : 'text-danger';
-        const trendIcon = data.percent_change_today >= 0 ? '↑' : '↓';
+const trendIcon = data.percent_change_today >= 0 ? '↑' : '↓';
 
-        predictionContainer.innerHTML = `
-          <div class="prediction-badge ${data.recommendation === 'BUY' ? 'prediction-buy' : 
-                                         data.recommendation === 'SELL' ? 'prediction-sell' : 
-                                         'prediction-hold'}">${data.recommendation}</div>
-          <div class="prediction-details">
-            <div class="${trendColor}">${trendIcon} ${Math.abs(data.percent_change_today).toFixed(2)}% today</div>
-            <div class="technical mt-1">
-              <span>RSI: ${data.technical_indicators.rsi}</span> | 
-              <span>MACD: ${data.technical_indicators.macd}</span>
-            </div>
-            <div class="small text-muted">Updated: ${data.last_updated}</div>
-          </div>`;
+predictionContainer.innerHTML = `
+  <div class="prediction-badge ${data.recommendation === 'BUY' ? 'prediction-buy' : 
+                                 data.recommendation === 'SELL' ? 'prediction-sell' : 
+                                 'prediction-hold'}">${data.recommendation}</div>
+  <div class="prediction-details">
+    <div class="${trendColor}">${trendIcon} ${Math.abs(data.percent_change_today).toFixed(2)}% today</div>
+    <div class="technical mt-1">
+      <span>RSI: ${data.technical_indicators.rsi}</span> | 
+      <span>MACD: ${data.technical_indicators.macd}</span>
+    </div>
+    <div class="small text-muted">Updated: ${data.last_updated}</div>
+  </div>`;
       } catch (error) {
         document.getElementById('detailPrediction').innerText = `Error fetching live prediction: ${error}`;
-      }
-    }
-
-    async function placeTrade(action) {
-      const qty = document.getElementById('tradeQty').value;
-      const statusEl = document.getElementById('tradeStatus');
-      statusEl.innerText = 'Placing order...';
-
-      if (!qty || parseInt(qty) <= 0) {
-        statusEl.innerText = '❌ Please enter a valid quantity.';
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/${action}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            symbol: currentDetailSymbol,
-            quantity: parseInt(qty)
-          })
-        });
-
-        const result = await response.json();
-
-        if (result.error) {
-          statusEl.innerText = `❌ ${result.error}`;
-        } else {
-          statusEl.innerText = `✅ ${action.toUpperCase()} order placed for ${qty} shares.`;
-        }
-      } catch (err) {
-        statusEl.innerText = `❌ Error: ${err.message}`;
       }
     }
 
@@ -637,22 +590,22 @@
     }
 
     function filterByRecommendation(recommendation) {
-  if (selectedRecommendation === recommendation) {
-    selectedRecommendation = '';
-  } else {
-    selectedRecommendation = recommendation;
-  }
-  
-  document.querySelectorAll('.recommendation-box').forEach(box => {
-    box.classList.remove('active');
-  });
-  
-  if (selectedRecommendation) {
-    document.getElementById(`${selectedRecommendation.toLowerCase()}Box`).classList.add('active');
-  }
-  
-  filterStocks();
-}
+      if (selectedRecommendation === recommendation) {
+        selectedRecommendation = '';
+      } else {
+        selectedRecommendation = recommendation;
+      }
+      
+      document.querySelectorAll('.recommendation-box').forEach(box => {
+        box.classList.remove('active');
+      });
+      
+      if (selectedRecommendation) {
+        document.getElementById(`${selectedRecommendation.toLowerCase()}Box`).classList.add('active');
+      }
+      
+      filterStocks();
+    }
 
     function resetFilters() {
       selectedRecommendation = '';
