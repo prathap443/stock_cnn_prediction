@@ -256,22 +256,11 @@ def get_last_trading_day(end_dt):
 
 def get_price_history(symbol, period):
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
-    end_dt = now
-    if not is_market_open() and period == "1D":
-        last_trading_day = get_last_trading_day(now)
-        # Return mock data for closed market
-        return [{
-            "date": (last_trading_day - timedelta(minutes=i*5)).strftime('%Y-%m-%d %H:%M:%S'),
-            "close": random.uniform(410, 420) if symbol == "AAPL" else random.uniform(100, 120)
-        } for i in range(288)]  # 24 hours * 12 intervals/hour = 288 points
+    end_dt = get_last_trading_day(now)  # Use the last trading day as the end date
+    end_dt = end_dt.replace(hour=16+5, minute=0, second=0, microsecond=0)  # 4:00 PM EST in UTC
+
     if period == "1D":
-        if is_market_open():
-            start_dt = now - timedelta(hours=6)
-        else:
-            last_trading_day = get_last_trading_day(now)
-            start_dt = last_trading_day.replace(hour=9+5, minute=30, second=0, microsecond=0)  # 9:30 AM EST in UTC
-            end_dt = last_trading_day.replace(hour=16+5, minute=0, second=0, microsecond=0)    # 4:00 PM EST in UTC
-        start_dt = max(start_dt, now - timedelta(days=7))
+        start_dt = end_dt.replace(hour=9+5, minute=30, second=0, microsecond=0)  # 9:30 AM EST in UTC
         timeframe = "1Min"
     elif period == "1W":
         start_dt = end_dt - timedelta(days=7)
@@ -279,39 +268,31 @@ def get_price_history(symbol, period):
     elif period == "1M":
         start_dt = end_dt - timedelta(days=30)
         timeframe = "1Day"
-    else:
+    elif period == "2W":  # For the 14-day trend on the main page
         start_dt = end_dt - timedelta(days=14)
         timeframe = "1Day"
+    else:
+        return [{"error": f"Unsupported period: {period}"}]
 
     start_dt = max(start_dt, now - timedelta(days=365))
-    end_dt = min(end_dt, now)
     if start_dt >= end_dt:
         logger.error(f"Date validation failed for {symbol}: {start_dt} >= {end_dt}")
         return [{"error": f"Invalid date range for {period} data"}]
 
     bars = fetch_alpaca_data(symbol, start_dt, end_dt, timeframe)
-    if not bars and period == "1D":
-        start_dt = last_trading_day.replace(hour=9+5, minute=30, second=0, microsecond=0)
-        end_dt = last_trading_day.replace(hour=16+5, minute=0, second=0, microsecond=0)
-        timeframe = "1Day"
-        bars = fetch_alpaca_data(symbol, start_dt, end_dt, timeframe)
+    if not bars:
+        logger.error(f"No data fetched for {symbol} for period {period}")
+        return [{"error": f"No {period} data available for {symbol} from Alpaca"}]
+
     try:
         history = []
         for bar in bars:
             dt = datetime.fromisoformat(bar['t'].replace('Z', '+00:00'))
-            if period == "1D" and is_market_open() and dt > datetime.utcnow():
-                continue
             history.append({
                 'date': dt.strftime('%Y-%m-%d %H:%M:%S' if timeframe == "1Min" else '%Y-%m-%d'),
                 'close': bar['c']
             })
-        if not history and not is_market_open():
-            # Fallback to mock data when no real data and market closed
-            history = [{
-                "date": (last_trading_day - timedelta(minutes=i*5)).strftime('%Y-%m-%d %H:%M:%S'),
-                "close": random.uniform(410, 420) if symbol == "AAPL" else random.uniform(100, 120)
-            } for i in range(288)]
-        elif not history:
+        if not history:
             return [{"error": f"No valid {period} data points for {symbol}."}]
         return history
     except Exception as e:
@@ -350,24 +331,24 @@ def get_stock_info(symbol):
 def get_historical_data(symbol, days=60):
     time.sleep(random.uniform(0.5, 1.5))
     try:
-        end_date = datetime.utcnow().replace(tzinfo=timezone.utc)
+        end_date = get_last_trading_day(datetime.utcnow().replace(tzinfo=timezone.utc))
         start_date = end_date - timedelta(days=days)
         bars = fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day")
         if not bars:
             return {
                 "symbol": symbol,
-                "percent_change_2w": random.uniform(-10, 10),
-                "percent_change_5d": random.uniform(-5, 5),
-                "current_price": random.uniform(50, 500),
-                "volatility": random.uniform(1, 8),
+                "percent_change_2w": 0,
+                "percent_change_5d": 0,
+                "current_price": 0,
+                "volatility": 0,
                 "technical_indicators": {
-                    "rsi": f"{random.uniform(30, 70):.1f}",
-                    "macd": f"{random.uniform(-2, 2):.2f}",
+                    "rsi": "N/A",
+                    "macd": "N/A",
                     "sma_50": 0,
                     "bb_width": 0,
-                    "stochastic": f"{random.uniform(20, 80):.1f}",
-                    "volume_analysis": "Neutral",
-                    "trend": "Neutral"
+                    "stochastic": "N/A",
+                    "volume_analysis": "N/A",
+                    "trend": "N/A"
                 }
             }
         timestamps = []
@@ -389,18 +370,18 @@ def get_historical_data(symbol, days=60):
         if len(prices) < 2:
             return {
                 "symbol": symbol,
-                "percent_change_2w": random.uniform(-10, 10),
-                "percent_change_5d": random.uniform(-5, 5),
-                "current_price": random.uniform(50, 500),
-                "volatility": random.uniform(1, 8),
+                "percent_change_2w": 0,
+                "percent_change_5d": 0,
+                "current_price": 0,
+                "volatility": 0,
                 "technical_indicators": {
-                    "rsi": f"{random.uniform(30, 70):.1f}",
-                    "macd": f"{random.uniform(-2, 2):.2f}",
+                    "rsi": "N/A",
+                    "macd": "N/A",
                     "sma_50": 0,
                     "bb_width": 0,
-                    "stochastic": f"{random.uniform(20, 80):.1f}",
-                    "volume_analysis": "Neutral",
-                    "trend": "Neutral"
+                    "stochastic": "N/A",
+                    "volume_analysis": "N/A",
+                    "trend": "N/A"
                 }
             }
         df = pd.DataFrame({'Close': prices, 'Volume': volumes, 'High': highs, 'Low': lows})
@@ -477,18 +458,18 @@ def get_historical_data(symbol, days=60):
         logger.error(f"Error getting history for {symbol}: {str(e)}")
         return {
             "symbol": symbol,
-            "percent_change_2w": random.uniform(-10, 10),
-            "percent_change_5d": random.uniform(-5, 5),
-            "current_price": random.uniform(50, 500),
-            "volatility": random.uniform(1, 8),
+            "percent_change_2w": 0,
+            "percent_change_5d": 0,
+            "current_price": 0,
+            "volatility": 0,
             "technical_indicators": {
-                "rsi": f"{random.uniform(30, 70):.1f}",
-                "macd": f"{random.uniform(-2, 2):.2f}",
+                "rsi": "N/A",
+                "macd": "N/A",
                 "sma_50": 0,
                 "bb_width": 0,
-                "stochastic": f"{random.uniform(20, 80):.1f}",
-                "volume_analysis": "Neutral",
-                "trend": "Neutral"
+                "stochastic": "N/A",
+                "volume_analysis": "N/A",
+                "trend": "N/A"
             }
         }
 
@@ -585,6 +566,7 @@ def analyze_stock(symbol):
         history = get_historical_data(symbol, days=60)
         news_articles, news_sentiment = get_news_articles(symbol, retries=3)
         history_1d = get_price_history(symbol, "1D")
+        history_2w = get_price_history(symbol, "2W")  # Fetch 14-day history for main page chart
         current_price = history.get("current_price") or info.get("current_price")
         percent_change_2w = safe_float(history.get("percent_change_2w", 0))
         percent_change_5d = safe_float(history.get("percent_change_5d", 0))
@@ -626,24 +608,24 @@ def analyze_stock(symbol):
             "symbol": symbol, "name": info.get("name", symbol), "recommendation": recommendation,
             "percent_change_2w": percent_change_2w, "current_price": current_price, "reason": reason,
             "technical_indicators": technical_indicators, "news_sentiment": news_sentiment,
-            "news_articles": news_articles, "history_1d": history_1d,
+            "news_articles": news_articles, "history_1d": history_1d, "history_2w": history_2w,
             "sector": info.get("sector", SECTOR_MAPPING.get(symbol, "Unknown"))
         }
     except Exception as e:
         logger.error(f"Error analyzing {symbol}: {str(e)}")
         return {
             "symbol": symbol, "name": symbol, "recommendation": "HOLD", "percent_change_2w": 0,
-            "current_price": 100.0, "reason": "âš ï¸� Analysis failed. Defaulting to HOLD.",
+            "current_price": 0, "reason": "âš ï¸� Analysis failed. Defaulting to HOLD.",
             "technical_indicators": {"rsi": "N/A", "macd": "N/A", "volume_analysis": "N/A", "trend": "N/A"},
-            "news_articles": [], "history_1d": [], "sector": SECTOR_MAPPING.get(symbol, "Unknown")
+            "news_articles": [], "history_1d": [], "history_2w": [], "sector": SECTOR_MAPPING.get(symbol, "Unknown")
         }
 
 def create_fallback_entry(symbol):
     return {
-        "symbol": symbol, "name": symbol, "recommendation": "HOLD", "percent_change_2w": random.uniform(-3, 3),
-        "current_price": random.uniform(80, 300), "reason": "Analysis unavailable. Maintain position.",
+        "symbol": symbol, "name": symbol, "recommendation": "HOLD", "percent_change_2w": 0,
+        "current_price": 0, "reason": "Analysis unavailable. Maintain position.",
         "technical_indicators": {"rsi": "N/A", "macd": "N/A", "volume_analysis": "N/A", "trend": "N/A"},
-        "news_articles": [], "history_1d": [], "sector": SECTOR_MAPPING.get(symbol, "Unknown")
+        "news_articles": [], "history_1d": [], "history_2w": [], "sector": SECTOR_MAPPING.get(symbol, "Unknown")
     }
 
 def analyze_all_stocks():
