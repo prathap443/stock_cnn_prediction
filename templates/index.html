@@ -278,67 +278,67 @@
       document.getElementById("sellCount").innerText = summary.SELL || 0;
     }
 
-    async function renderStocks(stocks, period) {
-      let html = '';
-      stocks.forEach((stock, i) => {
-        const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
-        const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
-        const chartId = `chart-${i}`;
-        
-        html += `
-          <div class="col-md-6 col-lg-4 mb-4">
-            <div class="stock-card" onclick="showStockDetail('${stock.symbol}')">
-              <div class="card-header">
-                <div class="symbol-container">
-                  <h5>${stock.symbol}</h5>
-                  <span class="badge ${getRecommendationClass(stock.recommendation)}">${stock.recommendation}</span>
-                </div>
-                <small class="text-muted">${stock.name}</small>
-              </div>
-              <div class="card-body">
-                <div class="price-row">
-                  <div class="current-price">$${stock.current_price?.toFixed(2) || 'N/A'}</div>
-                  <div class="change ${trendColor}">
-                    ${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%
-                  </div>
-                </div>
-                <div class="chart-container">
-                  <canvas id="${chartId}" height="120"></canvas>
-                </div>
-                <div class="sentiment-row">
-                  <span class="sentiment-label">Sentiment:</span>
-                  <span class="sentiment-value">${stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A'}</span>
-                </div>
-                <div class="trade-buttons mt-2">
-                  <button class="btn btn-success btn-sm me-2 trade-btn" data-symbol="${stock.symbol}" data-side="buy">Buy</button>
-                  <button class="btn btn-danger btn-sm trade-btn" data-symbol="${stock.symbol}" data-side="sell">Sell</button>
-                </div>
-              </div>
-              <div class="card-footer">
-                <span class="sector-badge">${stock.sector}</span>
-                <span class="view-details">View Details</span>
+async function renderStocks(stocks, period) {
+  let html = '';
+  stocks.forEach((stock, i) => {
+    const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
+    const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
+    const chartId = `chart-${i}`;
+
+    html += `
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="stock-card">
+          <div class="card-header">
+            <div class="symbol-container">
+              <h5>${stock.symbol}</h5>
+              <span class="badge ${getRecommendationClass(stock.recommendation)}">${stock.recommendation}</span>
+            </div>
+            <small class="text-muted">${stock.name}</small>
+          </div>
+          <div class="card-body">
+            <div class="price-row">
+              <div class="current-price">$${stock.current_price?.toFixed(2) || 'N/A'}</div>
+              <div class="change ${trendColor}">
+                ${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%
               </div>
             </div>
-          </div>`;
-      });
-      
-      document.getElementById("dashboardContent").innerHTML = html;
-      
-      // Fetch and render charts for each stock
-      for (let i = 0; i < stocks.length; i++) {
-        await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
-      }
+            <div class="chart-container" onclick="showStockDetail('${stock.symbol}')">
+              <canvas id="${chartId}" height="120"></canvas>
+            </div>
+            <div class="sentiment-row">
+              <span class="sentiment-label">Sentiment:</span>
+              <span class="sentiment-value">${stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A'}</span>
+            </div>
+            <div class="trade-buttons mt-2">
+              <button class="btn btn-success btn-sm me-2 trade-btn" data-symbol="${stock.symbol}" data-side="buy">Buy</button>
+              <button class="btn btn-danger btn-sm trade-btn" data-symbol="${stock.symbol}" data-side="sell">Sell</button>
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="sector-badge">${stock.sector}</span>
+            <span class="view-details" onclick="showStockDetail('${stock.symbol}')">View Details</span>
+          </div>
+        </div>
+      </div>`;
+  });
 
-      // Add event listeners for trade buttons
-      document.querySelectorAll('.trade-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation(); // Prevent triggering showStockDetail
-          const symbol = btn.dataset.symbol;
-          const side = btn.dataset.side;
-          placeTrade(symbol, side);
-        });
-      });
-    }
+  document.getElementById("dashboardContent").innerHTML = html;
+
+  // Fetch and render charts for each stock
+  for (let i = 0; i < stocks.length; i++) {
+    await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
+  }
+
+  // Add event listeners for trade buttons
+  document.querySelectorAll('.trade-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent triggering showStockDetail
+      const symbol = btn.dataset.symbol;
+      const side = btn.dataset.side;
+      placeTrade(symbol, side);
+    });
+  });
+}
     
     function getRecommendationClass(recommendation) {
       switch(recommendation) {

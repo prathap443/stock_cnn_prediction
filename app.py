@@ -937,39 +937,88 @@ def not_found(e):
     return render_template('index.html'), 404
 
 @app.route('/api/stock_chart/<symbol>/<period>')
-def stock_chart(symbol, period):
-    history = get_price_history(symbol, period)
-    if 'error' in history[0]:
-        return jsonify({"error": history[0]["error"]}), 500
-    labels = [entry['date'] for entry in history]
-    data = [entry['close'] for entry in history]
-    chart_config = {
-        "type": "line",
-        "data": {
-            "labels": labels,
-            "datasets": [{
-                "label": f"{symbol} Price",
-                "data": data,
-                "borderColor": "#36A2EB",
-                "backgroundColor": "rgba(54, 162, 235, 0.2)",
-                "borderWidth": 2,
-                "fill": false
-            }]
-        },
-        "options": {
-            "responsive": true,
-            "maintainAspectRatio": false,
-            "scales": {
-                "x": {"title": {"display": true, "text": "Time"}},
-                "y": {"title": {"display": true, "text": "Price ($)"}, "beginAtZero": false}
+def get_stock_chart(symbol, period):
+    try:
+        alpaca = AlpacaAPI()
+        end = datetime.now(timezone.utc)
+        
+        # Adjust for weekends: if today is Saturday or Sunday, use the last Friday
+        if end.weekday() == 5:  # Saturday
+            end -= timedelta(days=1)
+        elif end.weekday() == 6:  # Sunday
+            end -= timedelta(days=2)
+
+        if period == '1D':
+            start = end - timedelta(days=1)
+            timeframe = '1Min'
+        elif period == '1W':
+            start = end - timedelta(days=7)
+            timeframe = '1Hour'
+        elif period == '1M':
+            start = end - timedelta(days=30)
+            timeframe = '1Day'
+        else:
+            return jsonify({'error': 'Invalid period. Use 1D, 1W, or 1M'}), 400
+
+        # Ensure start and end are on trading days
+        start = start.replace(hour=14, minute=30)  # Market open (UTC)
+        end = end.replace(hour=21, minute=0)       # Market close (UTC)
+
+        bars = alpaca.get_bars(symbol, start, end, timeframe)
+        if not bars:
+            return jsonify({'error': f'No data available for {symbol} in the selected period'})
+
+        dates = [bar['t'] for bar in bars]
+        prices = [bar['c'] for bar in bars]
+
+        chart_config = {
+            'type': 'line',
+            'data': {
+                'labels': dates,
+                'datasets': [{
+                    'label': 'Price',
+                    'data': prices,
+                    'borderColor': 'rgba(75, 192, 192, 1)',
+                    'backgroundColor': 'rgba(75, 192, 192, 0.1)',
+                    'tension': 0.3 if period != '1D' else 0,
+                    'fill': period != '1D',
+                    'pointRadius': 0
+                }]
             },
-            "plugins": {
-                "legend": {"position": "top"},
-                "tooltip": {"mode": "index", "intersect": false}
+            'options': {
+                'interaction': {'mode': 'nearest', 'intersect': False},
+                'responsive': True,
+                'maintainAspectRatio': False,
+                'plugins': {
+                    'legend': {'display': False},
+                    'tooltip': {
+                        'enabled': True,
+                        'callbacks': {
+                            'label': 'function(context) { return "$" + context.raw.toFixed(3); }',
+                            'title': 'function(context) { return context[0].label; }'
+                        }
+                    }
+                },
+                'scales': {
+                    'x': {
+                        'ticks': {
+                            'maxTicksLimit': 10 if period != '1D' else 8,
+                            'autoSkip': True,
+                            'callback': f"function(value, index, values) {{ let date = new Date(this.getLabelForValue(value)); return {'true' if period == '1D' else 'false'} ? date.toLocaleTimeString([], {{hour: '2-digit', minute: '2-digit'}}) : date.toLocaleDateString('en-US', {{month: 'short', day: '2-digit'}}); }}"
+                        },
+                        'grid': {'display': False}
+                    },
+                    'y': {
+                        'beginAtZero': False,
+                        'grid': {'color': 'rgba(200, 200, 200, 0.1)'}
+                    }
+                }
             }
         }
-    }
-    return jsonify(chart_config)
+        return jsonify(chart_config)
+    except Exception as e:
+        logger.error(f"Error fetching chart for {symbol} ({period}): {str(e)}")
+        return jsonify({'error': f'Failed to fetch chart data: {str(e)}'}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
