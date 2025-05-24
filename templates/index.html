@@ -9,6 +9,21 @@
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    .period-selector-main {
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .period-selector-main .btn {
+      margin-right: 5px;
+    }
+    .stock-card .chart-container {
+      height: 120px;
+    }
+    .modal .chart-container {
+      height: 300px;
+    }
+  </style>
 </head>
 <body>
   <div class="container my-4">
@@ -132,6 +147,15 @@
       </div>
     </div>
 
+    <!-- Period Selector for Main Dashboard -->
+    <div class="period-selector-main">
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-primary active" onclick="updateMainCharts('1D')">1D</button>
+        <button type="button" class="btn btn-outline-primary" onclick="updateMainCharts('1W')">1W</button>
+        <button type="button" class="btn btn-outline-primary" onclick="updateMainCharts('1M')">1M</button>
+      </div>
+    </div>
+
     <div id="dashboardContent" class="row g-4"></div>
   </div>
 
@@ -210,7 +234,7 @@
   <script>
     let allStocks = [];
     let selectedRecommendation = '';
-    let selectedTimePeriods = {};
+    let selectedTimePeriods = { main: '1D' }; // Default to 1D for main dashboard
     let currentDetailSymbol = '';
     
     async function loadDashboard(retries = 2) {
@@ -224,7 +248,7 @@
             allStocks = data.stocks;
             document.getElementById("dashboardContent").innerHTML = '';
             renderCounts(data.summary);
-            renderStocks(allStocks);
+            renderStocks(allStocks, selectedTimePeriods.main);
             populateSectorFilter(allStocks);
             document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated}`;
             return;
@@ -254,7 +278,7 @@
       document.getElementById("sellCount").innerText = summary.SELL || 0;
     }
 
-    function renderStocks(stocks) {
+    async function renderStocks(stocks, period) {
       let html = '';
       stocks.forEach((stock, i) => {
         const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
@@ -279,7 +303,7 @@
                   </div>
                 </div>
                 <div class="chart-container">
-                  <canvas id="${chartId}" height="100"></canvas>
+                  <canvas id="${chartId}" height="120"></canvas>
                 </div>
                 <div class="sentiment-row">
                   <span class="sentiment-label">Sentiment:</span>
@@ -300,9 +324,10 @@
       
       document.getElementById("dashboardContent").innerHTML = html;
       
-      stocks.forEach((stock, i) => {
-        renderStockChart(`chart-${i}`, stock.history_1d || [], '1D');
-      });
+      // Fetch and render charts for each stock
+      for (let i = 0; i < stocks.length; i++) {
+        await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
+      }
 
       // Add event listeners for trade buttons
       document.querySelectorAll('.trade-btn').forEach(btn => {
@@ -394,17 +419,13 @@
       document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
       
       try {
-        const response = await fetch(`/api/stock_history/${currentDetailSymbol}/${period}`);
-        const historyData = await response.json();
+        const response = await fetch(`/api/stock_chart/${currentDetailSymbol}/${period}`);
+        const chartConfig = await response.json();
         
-        if (historyData && historyData.length > 0) {
-          if (historyData[0].error) {
-            document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${historyData[0].error}</p>`;
-          } else {
-            renderDetailStockChart(historyData, period);
-          }
+        if (chartConfig && !chartConfig.error) {
+          renderDetailStockChart(chartConfig);
         } else {
-          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">No data available for ${period}. This may be due to API restrictions on historical data.</p>`;
+          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${chartConfig.error || 'No data available for this period.'}</p>`;
         }
       } catch (error) {
         console.error(`Error updating chart for ${currentDetailSymbol}:`, error);
@@ -412,79 +433,13 @@
       }
     }
     
-    function renderDetailStockChart(historyData, period) {
+    function renderDetailStockChart(chartConfig) {
       const ctx = document.getElementById('detailChart').getContext('2d');
       if (ctx.chart) {
         ctx.chart.destroy();
       }
       
-      const dates = historyData.map(item => item.date);
-      const prices = historyData.map(item => item.close);
-      const isIntraday = period === '1D';
-      
-      ctx.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates,
-          datasets: [{
-            label: 'Price',
-            data: prices,
-            borderColor: 'rgba(75, 192, 192, 1)',
-            backgroundColor: 'rgba(75, 192, 192, 0.1)',
-            tension: isIntraday ? 0 : 0.3,
-            fill: isIntraday ? false : true,
-            pointRadius: 0
-          }]
-        },
-        options: {
-          interaction: {
-            mode: 'nearest',
-            intersect: false
-          },
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              enabled: true,
-              callbacks: {
-                label: function(context) {
-                  return `$${context.raw.toFixed(3)}`;
-                },
-                title: function(context) {
-                  return context[0].label;
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              ticks: {
-                maxTicksLimit: isIntraday ? 8 : 10,
-                autoSkip: true,
-                callback: function(value, index, values) {
-                  if (isIntraday) {
-                    const date = new Date(dates[index]);
-                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  } else {
-                    const date = new Date(dates[index]);
-                    return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-                  }
-                }
-              },
-              grid: {
-                display: false
-              }
-            },
-            y: {
-              beginAtZero: false,
-              grid: {
-                color: 'rgba(200, 200, 200, 0.1)'
-              }
-            }
-          }
-        }
-      });
+      ctx.chart = new Chart(ctx, chartConfig);
     }
     
     function renderDetailNews(articles) {
@@ -540,11 +495,7 @@
       }
     }
 
-    async function renderStockChart(canvasId, historyData, period) {
-      if (!historyData || historyData.length === 0 || historyData[0].error) {
-        return;
-      }
-      
+    async function renderStockChart(canvasId, symbol, period) {
       const ctx = document.getElementById(canvasId)?.getContext('2d');
       if (!ctx) return;
       
@@ -552,55 +503,40 @@
         ctx.chart.destroy();
       }
       
-      const dates = historyData.map(item => item.date);
-      const prices = historyData.map(item => item.close);
-      const isIntraday = period === '1D';
-      
-      ctx.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates,
-          datasets: [{
-            data: prices,
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1.5,
-            tension: isIntraday ? 0 : 0.3,
-            pointRadius: 0,
-            fill: false
-          }]
-        },
-        options: {
-          interaction: {
-            mode: 'nearest',
-            intersect: false
-          },
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              enabled: true,
-              callbacks: {
-                label: function(context) {
-                  return `$${context.raw.toFixed(2)}`;
-                },
-                title: function(context) {
-                  return context[0].label;
-                }
-              }
-            }
-          },
-          scales: {
-            x: { display: false },
-            y: { display: false }
-          },
-          elements: {
-            line: {
-              tension: 0.4
-            }
-          }
+      try {
+        const response = await fetch(`/api/stock_chart/${symbol}/${period}`);
+        const chartConfig = await response.json();
+        
+        if (chartConfig.error) {
+          document.getElementById(canvasId).parentElement.innerHTML = `<p class="text-muted small text-center">${chartConfig.error}</p>`;
+          return;
         }
+        
+        // Customize chart options for the main dashboard (smaller charts)
+        chartConfig.options.scales.x.display = false;
+        chartConfig.options.scales.y.display = false;
+        chartConfig.options.plugins.legend.display = false;
+        chartConfig.options.plugins.tooltip.enabled = true;
+        chartConfig.data.datasets[0].borderWidth = 1.5;
+        chartConfig.data.datasets[0].pointRadius = 0;
+        
+        ctx.chart = new Chart(ctx, chartConfig);
+      } catch (error) {
+        console.error(`Error rendering chart for ${symbol} (${period}):`, error);
+        document.getElementById(canvasId).parentElement.innerHTML = `<p class="text-muted small text-center">Error loading chart</p>`;
+      }
+    }
+
+    async function updateMainCharts(period) {
+      selectedTimePeriods.main = period;
+      
+      document.querySelectorAll('.period-selector-main .btn').forEach(btn => {
+        btn.classList.remove('active');
       });
+      document.querySelector(`.period-selector-main .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
+      
+      const filteredStocks = filterStocksForRender();
+      await renderStocks(filteredStocks, period);
     }
 
     function populateSectorFilter(stocks) {
@@ -616,11 +552,11 @@
       });
     }
 
-    function filterStocks() {
+    function filterStocksForRender() {
       const searchTerm = document.getElementById("stockSearch").value.toLowerCase();
       const selectedSector = document.getElementById("sectorFilter").value;
       
-      const filteredStocks = allStocks.filter(stock => {
+      return allStocks.filter(stock => {
         const matchesSearch = stock.symbol.toLowerCase().includes(searchTerm) || 
                              (stock.name && stock.name.toLowerCase().includes(searchTerm));
         const matchesSector = !selectedSector || stock.sector === selectedSector;
@@ -628,8 +564,11 @@
         
         return matchesSearch && matchesSector && matchesRecommendation;
       });
-      
-      renderStocks(filteredStocks);
+    }
+
+    function filterStocks() {
+      const filteredStocks = filterStocksForRender();
+      renderStocks(filteredStocks, selectedTimePeriods.main);
     }
 
     function filterByRecommendation(recommendation) {
@@ -652,13 +591,17 @@
 
     function resetFilters() {
       selectedRecommendation = '';
-      selectedTimePeriods = {};
+      selectedTimePeriods = { main: '1D' };
       document.getElementById("stockSearch").value = '';
       document.getElementById("sectorFilter").value = '';
       
       document.querySelectorAll('.recommendation-box').forEach(box => {
         box.classList.remove('active');
       });
+      document.querySelectorAll('.period-selector-main .btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector('.period-selector-main .btn:nth-child(1)').classList.add('active');
       
       filterStocks();
     }
@@ -693,17 +636,21 @@
         
         if (json.success) {
           selectedRecommendation = '';
-          selectedTimePeriods = {};
+          selectedTimePeriods = { main: '1D' };
           document.querySelectorAll('.recommendation-box').forEach(box => {
             box.classList.remove('active');
           });
+          document.querySelectorAll('.period-selector-main .btn').forEach(btn => {
+            btn.classList.remove('active');
+          });
+          document.querySelector('.period-selector-main .btn:nth-child(1)').classList.add('active');
           
           await loadDashboard();
         } else {
           alert("Refresh failed: " + json.error);
         }
-      } catch (err) {
-        alert("Error refreshing data: " + err.message);
+      } catch (error) {
+        alert("Error refreshing data: " + error.message);
       } finally {
         refreshBtn.disabled = false;
         refreshBtn.innerHTML = '<span class="refresh-icon">🔄</span> Refresh';

@@ -687,6 +687,8 @@ def serve_static(path):
 
 @app.route('/login')
 def login():
+    if 'user' in session:
+        return redirect(url_for('serve_index'))  # If already logged in, go to index
     discovery_doc = requests.get(GOOGLE_DISCOVERY_URL).json()
     authorization_endpoint = discovery_doc["authorization_endpoint"]
     redirect_uri = request.host_url.rstrip('/') + url_for("callback")
@@ -697,7 +699,7 @@ def login():
         f"&redirect_uri={redirect_uri}"
         f"&scope=openid%20email%20profile"
     )
-    return redirect(request_uri)
+    return render_template('login.html', auth_url=request_uri)  # Serve login.html with OAuth URL
 
 @app.route('/callback', methods=["POST"])
 def callback():
@@ -717,7 +719,8 @@ def callback():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('serve_index'))
+    logger.info("User logged out and redirected to login page")
+    return redirect(url_for('login'))  # Redirect to the login page
 
 @app.route('/api/stocks')
 def api_stocks():
