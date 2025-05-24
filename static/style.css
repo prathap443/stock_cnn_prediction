@@ -608,3 +608,63 @@ body {
     margin: 0 10px;
   }
 }
+
+/* === Trade Buttons === */
+.trade-buttons {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.trade-btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.trade-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-success.trade-btn {
+  background-color: #34C759;
+  color: white;
+}
+
+.btn-success.trade-btn:hover {
+  background-color: #1A7431;
+}
+
+.btn-danger.trade-btn {
+  background-color: #FF3B30;
+  color: white;
+}
+
+.btn-danger.trade-btn:hover {
+  background-color: #A61C1C;
+}
+
+@media (max-width: 768px) {
+  .trade-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+}
+
+/* === Modal Stats Container Enhancements === */
+.modal-body .col-md-4 .stats-container {
+  padding: 15px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--border-color);
+}
+
+[data-theme="dark"] .modal-body .col-md-4 .stats-container {
+  background: #2a2a2a;
+}

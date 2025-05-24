@@ -25,8 +25,9 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('stock_analysis_webapp')
 
-# Initialize Flask app
-app = Flask(__name__)
+# Initialize Flask app with static and template folders
+app = Flask(__name__, static_folder="build", static_url_path="")
+
 app.secret_key = "your_secret_key_here"
 
 # Google OAuth details
@@ -89,7 +90,8 @@ FEATURE_COLUMNS = [
 
 # Create directories
 os.makedirs('data', exist_ok=True)
-os.makedirs('static', exist_ok=True)
+os.makedirs('static/build', exist_ok=True)  # Updated to create static/build
+os.makedirs('templates', exist_ok=True)     # Added to create templates directory
 
 # Stock lists
 base_stocks = [
@@ -148,9 +150,10 @@ SECTOR_MAPPING = {
     "XOM": "Energy"
 }
 
-# Trade limiter: In-memory store for user trade counts (resets daily)
+# Trade limiter: In-memory store for user trade counts (resets daily) and registered users
 user_trade_counts = {}  # Format: {user_email: {"count": X, "last_reset": datetime}}
 TRADE_LIMIT_PER_DAY = 5
+registered_users = {}  # Format: {user_email: {"password": hashed_password}}
 
 def reset_user_trade_count_if_needed(user_email):
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -190,7 +193,6 @@ def is_market_open():
     return market_open <= est_time <= market_close
 
 def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3):
-    # Add detailed debug logging for dates
     logger.debug(f"""
     Fetching {symbol} ({timeframe})
     System UTC: {datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()}
@@ -198,7 +200,6 @@ def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3)
     Calculated End: {end_date.isoformat()}
     """)
 
-    # Ensure dates are in the past
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
     if start_date >= now or end_date > now:
         logger.warning(f"Invalid date range for {symbol}: start={start_date}, end={end_date} are in the future")
@@ -305,26 +306,21 @@ def get_last_trading_day(end_dt):
     return last_trading_day
 
 def get_price_history(symbol, period):
-    now = datetime.utcnow().replace(tzinfo=timezone.utc)  # Use UTC-aware datetime
-    end_dt = now  # Always end at current time
-
-    est_offset = timedelta(hours=-5)
-
-    # Add validation for all calculated dates
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    end_dt = now
+    if not is_market_open() and period == "1D":
+        last_trading_day = get_last_trading_day(now)
+        return [{"date": last_trading_day.strftime('%Y-%m-%d %H:%M:%S'), "close": 0, "note": "Market closed, using placeholder data"}]
     if period == "1D":
-        # Clamp to market hours
         if is_market_open():
             start_dt = now - timedelta(hours=6)
         else:
-            # Force last trading day to be <= now
             last_trading_day = get_last_trading_day(now)
             start_dt = last_trading_day.replace(hour=9+5, minute=30, second=0, microsecond=0)  # 9:30 AM EST in UTC
             end_dt = last_trading_day.replace(hour=16+5, minute=0, second=0, microsecond=0)    # 4:00 PM EST in UTC
 
-        # Enforce max 7 days for 1Min data
         start_dt = max(start_dt, now - timedelta(days=7))
         timeframe = "1Min"
-        
     elif period == "1W":
         start_dt = end_dt - timedelta(days=7)
         timeframe = "1Day"
@@ -335,7 +331,6 @@ def get_price_history(symbol, period):
         start_dt = end_dt - timedelta(days=14)
         timeframe = "1Day"
 
-    # Add boundary check for all periods
     start_dt = max(start_dt, now - timedelta(days=365))  # Alpaca's max historical window
     end_dt = min(end_dt, now)  # Never exceed current time
 
@@ -569,9 +564,8 @@ def get_news_articles(symbol, retries=3):
     sentiment_score = 0
     for attempt in range(retries):
         try:
-            url = f"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}"
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-            response = requests.get(url, headers=headers, timeout=15)
+            url = f"https://data.alpaca.markets/v1beta1/news?symbols={symbol}&limit=5"
+            response = requests.get(url, headers=ALPACA_HEADERS, timeout=15)
             response.raise_for_status()
             data = response.json()
 
@@ -592,15 +586,15 @@ def get_news_articles(symbol, retries=3):
 
             texts = []
             for item in news_items:
-                title = item.get("title", "")
-                link = item.get("link", "#")
-                publisher = item.get("publisher", "Unknown")
-                pub_time = item.get("providerPublishTime", 0)
+                title = item.get("headline", "")
+                link = item.get("url", "#")
+                publisher = item.get("source", "Alpaca")  # Use "Alpaca" as the source
+                pub_time = item.get("created_at", "")
 
                 pub_date = "Unknown"
                 if pub_time:
                     try:
-                        pub_dt = datetime.utcfromtimestamp(pub_time)
+                        pub_dt = datetime.fromisoformat(pub_time.replace('Z', '+00:00'))
                         bst_dt = pub_dt + timedelta(hours=1)  # BST is UTC+1
                         pub_date = bst_dt.strftime("%Y-%m-%d %H:%M:%S")
                     except (ValueError, TypeError) as e:
@@ -624,7 +618,7 @@ def get_news_articles(symbol, retries=3):
                 continue
 
             sentiment_score = TextBlob(full_text).sentiment.polarity
-            logger.info(f"Sentiment for {symbol}: {sentiment_score:.3f} based on {len(articles)} articles: {texts}")
+            logger.info(f"Sentiment for {symbol}: {sentiment_score:.3f} based on {len(articles)} articles from Alpaca: {texts}")
             return articles, sentiment_score
 
         except requests.exceptions.HTTPError as e:
@@ -693,14 +687,14 @@ def analyze_stock(symbol):
             recommendation = "HOLD"
 
         reason = (
-            f"🤖 CNN-based prediction using "
+            f"ðŸ¤– CNN-based prediction using "
             f"RSI={rsi:.1f}, MACD={macd:.2f}, SMA_50={sma_50:.2f}, BB_Width={bb_width:.2f}, "
             f"Stochastic={stochastic:.1f}, Sentiment={news_sentiment:.2f}, "
             f"Volume_Score={volume_score}, Change_5d={percent_change_5d:.2f}%, "
             f"Volatility={volatility:.2f}"
         )
 
-        logger.info(f"{symbol} → CNN RECOMMEND: {recommendation}")
+        logger.info(f"{symbol} â†’ CNN RECOMMEND: {recommendation}")
 
         return {
             "symbol": symbol,
@@ -723,7 +717,7 @@ def analyze_stock(symbol):
             "recommendation": "HOLD",
             "percent_change_2w": 0,
             "current_price": 100.0,
-            "reason": "⚠️ Analysis failed. Defaulting to HOLD.",
+            "reason": "âš ï¸� Analysis failed. Defaulting to HOLD.",
             "technical_indicators": {
                 "rsi": "N/A", "macd": "N/A", 
                 "volume_analysis": "N/A", "trend": "N/A"
@@ -786,19 +780,66 @@ def analyze_all_stocks():
         logger.error(f"Error in analyze_all_stocks: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
 
-@app.route('/')
-def index():
-    user_info = session.get('user')
-    if user_info:
-        return render_template('index.html', user_name=user_info.get('name', 'User'))
-    return render_template('login.html')
+@app.route('/api/health')
+def health_check():
+    """
+    Health check endpoint to verify the API is working
+    """
+    alpaca_key = os.getenv("ALPACA_API_KEY")
+    alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+    
+    return jsonify({
+        "status": "healthy",
+        "api_keys": {
+            "alpaca_api_key": "âœ… Configured" if alpaca_key else "â�Œ Missing",
+            "alpaca_secret_key": "âœ… Configured" if alpaca_secret else "â�Œ Missing"
+        },
+        "static_folder": app.static_folder,
+        "static_url_path": app.static_url_path,
+        "template_folder": app.template_folder,
+        "files": {
+            "index_exists": os.path.exists(os.path.join(app.static_folder, "index.html")),
+            "asset_manifest_exists": os.path.exists(os.path.join(app.static_folder, "asset-manifest.json"))
+        }
+    })
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    """
+    Serve React app files or API endpoints
+    """
+    if path.startswith('api/'):
+        return app.view_functions.get(path)()
+
+    file_path = os.path.join(app.static_folder, path)
+    if path and os.path.exists(file_path):
+        return send_from_directory(app.static_folder, path)
+
+    index_path = os.path.join(app.static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_from_directory(app.static_folder, 'index.html')
+    else:
+        return jsonify({
+            "error": "React app not found",
+            "static_folder": app.static_folder,
+            "file_exists": os.path.exists(index_path)
+        }), 404
 
 @app.route('/login')
 def login():
     discovery_doc = requests.get(GOOGLE_DISCOVERY_URL).json()
     authorization_endpoint = discovery_doc["authorization_endpoint"]
 
-    request_uri = f"{authorization_endpoint}?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri=https://stock-cnn-prediction.onrender.com/callback&scope=openid%20email%20profile"
+    redirect_uri = request.host_url.rstrip('/') + url_for("callback")
+
+    request_uri = (
+        f"{authorization_endpoint}"
+        f"?response_type=code"
+        f"&client_id={GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope=openid%20email%20profile"
+    )
 
     return redirect(request_uri)
 
@@ -823,8 +864,7 @@ def callback():
             "picture": idinfo.get('picture')
         }
 
-        return redirect("https://stock-cnn-prediction.onrender.com/")
-        
+        return redirect(url_for("serve", _external=True, _scheme="https"))
     except Exception as e:
         logger.error(f"Error verifying ID token: {str(e)}")
         return jsonify({"error": "Authentication failed"}), 400
@@ -886,7 +926,6 @@ def api_refresh():
 @app.route('/trade', methods=['POST'])
 def place_order():
     try:
-        # Check user authentication
         user_info = session.get('user')
         if not user_info:
             return jsonify({"error": "User not authenticated. Please log in."}), 401
@@ -895,19 +934,16 @@ def place_order():
         if not user_email:
             return jsonify({"error": "User email not found in session."}), 401
 
-        # Check trade limit
         if not can_user_trade(user_email):
             return jsonify({"error": f"Daily trade limit of {TRADE_LIMIT_PER_DAY} reached. Try again tomorrow."}), 429
 
-        # Parse request data
         data = request.json
         symbol = data.get('symbol')
-        qty = data.get('qty')
+        qty = data.get('qty', 1)  # Default to 1 share if not specified
         side = data.get('side')  # 'buy' or 'sell'
 
-        # Validate inputs
-        if not symbol or not qty or not side:
-            return jsonify({"error": "Missing required fields: symbol, qty, or side"}), 400
+        if not symbol or not side:
+            return jsonify({"error": "Missing required fields: symbol or side"}), 400
 
         if side not in ['buy', 'sell']:
             return jsonify({"error": "Invalid side. Must be 'buy' or 'sell'"}), 400
@@ -922,16 +958,13 @@ def place_order():
         except (ValueError, TypeError):
             return jsonify({"error": "Invalid quantity. Must be a positive integer"}), 400
 
-        # Check market hours
         if not is_market_open():
             return jsonify({"error": "Market is closed. Trades can only be placed during market hours (9:30 AM - 4:00 PM EST, Mon-Fri)."}), 403
 
-        # Get Alpaca account ID
         account_id = get_alpaca_account_id()
         if not account_id:
             return jsonify({"error": "Failed to retrieve Alpaca account ID"}), 500
 
-        # Place the order
         url = f"https://broker-api.alpaca.markets/v1/trading/accounts/{account_id}/orders"
         payload = {
             "symbol": symbol,
@@ -944,12 +977,10 @@ def place_order():
         response = requests.post(url, json=payload, headers=ALPACA_HEADERS, timeout=10)
         response.raise_for_status()
 
-        # Increment trade count on successful order
         increment_user_trade_count(user_email)
         logger.info(f"{side.capitalize()} order placed for {qty} shares of {symbol} by user {user_email}")
 
         return jsonify(response.json()), response.status_code
-
     except requests.exceptions.RequestException as e:
         logger.error(f"Error placing {side} order for {symbol}: {str(e)}")
         return jsonify({"error": f"Failed to place order: {str(e)}"}), 500
@@ -957,7 +988,31 @@ def place_order():
         logger.error(f"Unexpected error in place_order: {str(e)}")
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
-@app.route("/predict", methods=["POST"])
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        try:
+            data = request.form
+            email = data.get('email')
+            password = data.get('password')
+
+            if not email or not password:
+                return jsonify({"error": "Email and password are required"}), 400
+
+            if email in registered_users:
+                return jsonify({"error": "User already registered"}), 400
+
+            # In production, hash the password (e.g., using bcrypt)
+            registered_users[email] = {"password": password}  # Placeholder: use hashing in production
+            logger.info(f"User {email} registered successfully")
+            return redirect(url_for('serve', _external=True, _scheme="https"))
+        except Exception as e:
+            logger.error(f"Error during registration: {str(e)}")
+            return jsonify({"error": f"Registration failed: {str(e)}"}), 500
+
+    return render_template('register.html')
+
+@app.route('/predict', methods=["POST"])
 def predict():
     try:
         data = request.get_json()
@@ -1080,11 +1135,10 @@ def retrain_model():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+@app.errorhandler(404)
+def not_found(e):
+    return send_from_directory(app.static_folder, 'index.html')
+
 if __name__ == "__main__":
-    if not os.path.exists('data/stock_analysis.json'):
-        try:
-            analyze_all_stocks()
-        except Exception as e:
-            logger.error(f"Initial analysis error: {str(e)}")
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)

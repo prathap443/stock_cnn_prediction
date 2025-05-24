@@ -17,6 +17,7 @@
         <h1 class="display-5 mb-1">📈 Stock Analytics - Prathap's Analysis</h1>
         <p class="text-muted">Real-time analysis of top market performers</p>
         <div class="text-end small text-muted" id="lastUpdated"></div>
+        <p id="marketStatus" class="text-muted small"></p>
       </div>
       <div class="d-flex align-items-center gap-2">
         <button class="btn btn-outline-secondary theme-toggle" onclick="toggleTheme()">
@@ -43,23 +44,24 @@
            data-shape="rectangular"
            data-logo_alignment="left">
       </div>
+      <p class="mt-2">Don't have an account? <a href="/register">Register here</a></p>
     </div>
 
     <div class="row text-center mb-3">
       <div class="col-md-4">
-        <div id="buyBox" class="p-3 buy-box rounded recommendation-box" onclick="filterByRecommendation('BUY')">
+        <div id="buyBox" class="p-3 buy-box rounded recommendation-box" role="button" tabindex="0" onclick="filterByRecommendation('BUY')" onkeydown="if(event.key === 'Enter' || event.key === ' ') filterByRecommendation('BUY')">
           <h5>BUY</h5>
           <h3 id="buyCount">0</h3>
         </div>
       </div>
       <div class="col-md-4">
-        <div id="holdBox" class="p-3 hold-box rounded recommendation-box" onclick="filterByRecommendation('HOLD')">
+        <div id="holdBox" class="p-3 hold-box rounded recommendation-box" role="button" tabindex="0" onclick="filterByRecommendation('HOLD')" onkeydown="if(event.key === 'Enter' || event.key === ' ') filterByRecommendation('HOLD')">
           <h5>HOLD</h5>
           <h3 id="holdCount">0</h3>
         </div>
       </div>
       <div class="col-md-4">
-        <div id="sellBox" class="p-3 sell-box rounded recommendation-box" onclick="filterByRecommendation('SELL')">
+        <div id="sellBox" class="p-3 sell-box rounded recommendation-box" role="button" tabindex="0" onclick="filterByRecommendation('SELL')" onkeydown="if(event.key === 'Enter' || event.key === ' ') filterByRecommendation('SELL')">
           <h5>SELL</h5>
           <h3 id="sellCount">0</h3>
         </div>
@@ -74,40 +76,40 @@
     <!-- Moving Logos Carousel -->
     <div class="logo-carousel my-4">
       <div class="logo-track">
-        <img src="/static/logos/apple.png" alt="Apple">
-        <img src="/static/logos/google.png" alt="Google">
-        <img src="/static/logos/tesla.png" alt="Tesla">
-        <img src="/static/logos/nvidia.png" alt="Nvidia">
-        <img src="/static/logos/meta.png" alt="Meta">
-        <img src="/static/logos/amazon.png" alt="Amazon">
-        <img src="/static/logos/intel.png" alt="Intel">
-        <img src="/static/logos/amd.png" alt="AMD">
-        <img src="/static/logos/netflix.png" alt="Netflix">
-        <img src="/static/logos/google.png" alt="Google" />
-        <img src="/static/logos/tesla.png" alt="Tesla" />
-        <img src="/static/logos/nvidia.png" alt="Nvidia" />
-        <img src="/static/logos/meta.png" alt="Meta" />
-        <img src="/static/logos/amazon.png" alt="Amazon" />
-        <img src="/static/logos/intel.png" alt="Intel" />
-        <img src="/static/logos/amd.png" alt="AMD" />
-        <img src="/static/logos/netflix.png" alt="Netflix" />
-        <img src="/static/logos/apple.png" alt="Apple">
-        <img src="/static/logos/google.png" alt="Google">
-        <img src="/static/logos/tesla.png" alt="Tesla">
-        <img src="/static/logos/nvidia.png" alt="Nvidia">
-        <img src="/static/logos/meta.png" alt="Meta">
-        <img src="/static/logos/amazon.png" alt="Amazon">
-        <img src="/static/logos/intel.png" alt="Intel">
-        <img src="/static/logos/amd.png" alt="AMD">
-        <img src="/static/logos/netflix.png" alt="Netflix">
-        <img src="/static/logos/google.png" alt="Google" />
-        <img src="/static/logos/tesla.png" alt="Tesla" />
-        <img src="/static/logos/nvidia.png" alt="Nvidia" />
-        <img src="/static/logos/meta.png" alt="Meta" />
-        <img src="/static/logos/amazon.png" alt="Amazon" />
-        <img src="/static/logos/intel.png" alt="Intel" />
-        <img src="/static/logos/amd.png" alt="AMD" />
-        <img src="/static/logos/netflix.png" alt="Netflix" />
+        <img src="/static/logos/apple.png" alt="Apple" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/meta.png" alt="Meta" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amazon.png" alt="Amazon" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/meta.png" alt="Meta" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amazon.png" alt="Amazon" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/apple.png" alt="Apple" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/meta.png" alt="Meta" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amazon.png" alt="Amazon" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/meta.png" alt="Meta" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amazon.png" alt="Amazon" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
       </div>
     </div>
 
@@ -211,24 +213,38 @@
     let selectedTimePeriods = {};
     let currentDetailSymbol = '';
     
-    async function loadDashboard() {
-      try {
-        document.getElementById("dashboardContent").innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-        
-        const response = await fetch('/api/stocks?t=' + Date.now());
-        const data = await response.json();
-        if (data && data.stocks) {
-          allStocks = data.stocks;
-          document.getElementById("dashboardContent").innerHTML = '';
-          renderCounts(data.summary);
-          renderStocks(allStocks);
-          populateSectorFilter(allStocks);
-          document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated}`;
-        } else {
-          document.getElementById("dashboardContent").innerHTML = '<p class="text-danger">No data available.</p>';
+    async function loadDashboard(retries = 2) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          document.getElementById("dashboardContent").innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+          
+          const response = await fetch('/api/stocks?t=' + Date.now());
+          const data = await response.json();
+          if (data && data.stocks) {
+            allStocks = data.stocks;
+            document.getElementById("dashboardContent").innerHTML = '';
+            renderCounts(data.summary);
+            renderStocks(allStocks);
+            populateSectorFilter(allStocks);
+            document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated}`;
+            return;
+          }
+        } catch (error) {
+          if (attempt === retries) {
+            document.getElementById("dashboardContent").innerHTML = `<p class="text-danger">Error loading data: ${error}. <button class="btn btn-sm btn-link" onclick="loadDashboard()">Retry</button></p>`;
+          }
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
+      }
+    }
+
+    async function updateMarketStatus() {
+      try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        document.getElementById('marketStatus').textContent = `Market Status: ${data.market_open ? 'Open' : 'Closed'}`;
       } catch (error) {
-        document.getElementById("dashboardContent").innerHTML = `<p class="text-danger">Error loading data: ${error}</p>`;
+        document.getElementById('marketStatus').textContent = `Market Status: Unknown (Error: ${error})`;
       }
     }
 
@@ -269,6 +285,10 @@
                   <span class="sentiment-label">Sentiment:</span>
                   <span class="sentiment-value">${stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A'}</span>
                 </div>
+                <div class="trade-buttons mt-2">
+                  <button class="btn btn-success btn-sm me-2 trade-btn" data-symbol="${stock.symbol}" data-side="buy">Buy</button>
+                  <button class="btn btn-danger btn-sm trade-btn" data-symbol="${stock.symbol}" data-side="sell">Sell</button>
+                </div>
               </div>
               <div class="card-footer">
                 <span class="sector-badge">${stock.sector}</span>
@@ -283,6 +303,16 @@
       stocks.forEach((stock, i) => {
         renderStockChart(`chart-${i}`, stock.history_1d || [], '1D');
       });
+
+      // Add event listeners for trade buttons
+      document.querySelectorAll('.trade-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent triggering showStockDetail
+          const symbol = btn.dataset.symbol;
+          const side = btn.dataset.side;
+          placeTrade(symbol, side);
+        });
+      });
     }
     
     function getRecommendationClass(recommendation) {
@@ -290,6 +320,26 @@
         case 'BUY': return 'bg-success';
         case 'SELL': return 'bg-danger';
         default: return 'bg-warning';
+      }
+    }
+
+    async function placeTrade(symbol, side) {
+      if (!confirm(`Are you sure you want to ${side} ${symbol}? (1 share)`)) return;
+
+      try {
+        const response = await fetch('/trade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol, qty: 1, side })
+        });
+        const data = await response.json();
+        if (data.error) alert(data.error);
+        else {
+          alert(`${side.toUpperCase()} order placed for ${symbol}!`);
+          await loadDashboard(); // Refresh to update counts
+        }
+      } catch (error) {
+        alert(`Error placing trade: ${error}`);
       }
     }
 
@@ -303,7 +353,6 @@
           return;
         }
         
-        // Update modal title and basic info
         document.getElementById('stockDetailModalLabel').innerText = `${symbol} - ${stock.name}`;
         document.getElementById('detailSymbol').innerText = symbol;
         document.getElementById('detailName').innerText = stock.name;
@@ -314,7 +363,6 @@
         document.getElementById('detailChange').innerText = `${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%`;
         document.getElementById('detailChange').className = `detail-change ${trendColor}`;
         
-        // Update technical indicators
         document.getElementById('detailRSI').innerText = stock.technical_indicators?.rsi || 'N/A';
         document.getElementById('detailMACD').innerText = stock.technical_indicators?.macd || 'N/A';
         document.getElementById('detailSentiment').innerText = stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A';
@@ -325,16 +373,10 @@
         recElement.classList.add(stock.recommendation === 'BUY' ? 'text-success' : 
                                 stock.recommendation === 'SELL' ? 'text-danger' : 'text-warning');
         
-        // Update news
         renderDetailNews(stock.news_articles);
-        
-        // Get live prediction
         getLiveDetailPrediction(symbol);
-        
-        // Show 1M chart by default
         updateDetailChart('1M');
         
-        // Show the modal
         const modal = new bootstrap.Modal(document.getElementById('stockDetailModal'));
         modal.show();
       } catch (error) {
@@ -346,7 +388,6 @@
     async function updateDetailChart(period) {
       if (!currentDetailSymbol) return;
       
-      // Update button active state
       document.querySelectorAll('.period-selector .btn').forEach(btn => {
         btn.classList.remove('active');
       });
@@ -363,11 +404,11 @@
             renderDetailStockChart(historyData, period);
           }
         } else {
-          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">No data available for ${period}.</p>`;
+          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">No data available for ${period}. This may be due to API restrictions on historical data.</p>`;
         }
       } catch (error) {
         console.error(`Error updating chart for ${currentDetailSymbol}:`, error);
-        document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">Error loading chart: ${error}</p>`;
+        document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">Error loading chart: Failed to fetch historical data. This may be due to API restrictions.</p>`;
       }
     }
     
@@ -390,8 +431,9 @@
             data: prices,
             borderColor: 'rgba(75, 192, 192, 1)',
             backgroundColor: 'rgba(75, 192, 192, 0.1)',
-            tension: 0.3,
-            fill: true
+            tension: isIntraday ? 0 : 0.3,
+            fill: isIntraday ? false : true,
+            pointRadius: 0
           }]
         },
         options: {
@@ -458,7 +500,7 @@
         newsHtml += `
           <div class="news-item">
             <h6><a href="${article.link}" target="_blank">${article.title}</a></h6>
-            <p class="small text-muted">Published by ${article.publisher} on ${article.published_at}</p>
+            <p class="small text-muted">Published by ${article.publisher || ''} on ${article.published_at}</p>
           </div>`;
       });
       
@@ -479,20 +521,20 @@
         }
         
         const trendColor = data.percent_change_today >= 0 ? 'text-success' : 'text-danger';
-const trendIcon = data.percent_change_today >= 0 ? '↑' : '↓';
+        const trendIcon = data.percent_change_today >= 0 ? '↑' : '↓';
 
-predictionContainer.innerHTML = `
-  <div class="prediction-badge ${data.recommendation === 'BUY' ? 'prediction-buy' : 
-                                 data.recommendation === 'SELL' ? 'prediction-sell' : 
-                                 'prediction-hold'}">${data.recommendation}</div>
-  <div class="prediction-details">
-    <div class="${trendColor}">${trendIcon} ${Math.abs(data.percent_change_today).toFixed(2)}% today</div>
-    <div class="technical mt-1">
-      <span>RSI: ${data.technical_indicators.rsi}</span> | 
-      <span>MACD: ${data.technical_indicators.macd}</span>
-    </div>
-    <div class="small text-muted">Updated: ${data.last_updated}</div>
-  </div>`;
+        predictionContainer.innerHTML = `
+          <div class="prediction-badge ${data.recommendation === 'BUY' ? 'prediction-buy' : 
+                                         data.recommendation === 'SELL' ? 'prediction-sell' : 
+                                         'prediction-hold'}">${data.recommendation}</div>
+          <div class="prediction-details">
+            <div class="${trendColor}">${trendIcon} ${Math.abs(data.percent_change_today).toFixed(2)}% today</div>
+            <div class="technical mt-1">
+              <span>RSI: ${data.technical_indicators.rsi}</span> | 
+              <span>MACD: ${data.technical_indicators.macd}</span>
+            </div>
+            <div class="small text-muted">Updated: ${data.last_updated}</div>
+          </div>`;
       } catch (error) {
         document.getElementById('detailPrediction').innerText = `Error fetching live prediction: ${error}`;
       }
@@ -512,6 +554,7 @@ predictionContainer.innerHTML = `
       
       const dates = historyData.map(item => item.date);
       const prices = historyData.map(item => item.close);
+      const isIntraday = period === '1D';
       
       ctx.chart = new Chart(ctx, {
         type: 'line',
@@ -521,7 +564,7 @@ predictionContainer.innerHTML = `
             data: prices,
             borderColor: 'rgba(75, 192, 192, 1)',
             borderWidth: 1.5,
-            tension: 0.3,
+            tension: isIntraday ? 0 : 0.3,
             pointRadius: 0,
             fill: false
           }]
@@ -632,6 +675,7 @@ predictionContainer.innerHTML = `
       document.documentElement.setAttribute('data-theme', saved);
       
       loadDashboard();
+      updateMarketStatus();
       
       document.getElementById("stockSearch").addEventListener("input", filterStocks);
       document.getElementById("sectorFilter").addEventListener("change", filterStocks);
