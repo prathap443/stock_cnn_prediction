@@ -23,6 +23,10 @@
     .modal .chart-container {
       height: 300px;
     }
+    .chart-container:hover, .view-details:hover {
+      cursor: pointer;
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
@@ -278,67 +282,67 @@
       document.getElementById("sellCount").innerText = summary.SELL || 0;
     }
 
-async function renderStocks(stocks, period) {
-  let html = '';
-  stocks.forEach((stock, i) => {
-    const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
-    const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
-    const chartId = `chart-${i}`;
+    async function renderStocks(stocks, period) {
+      let html = '';
+      stocks.forEach((stock, i) => {
+        const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
+        const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
+        const chartId = `chart-${i}`;
 
-    html += `
-      <div class="col-md-6 col-lg-4 mb-4">
-        <div class="stock-card">
-          <div class="card-header">
-            <div class="symbol-container">
-              <h5>${stock.symbol}</h5>
-              <span class="badge ${getRecommendationClass(stock.recommendation)}">${stock.recommendation}</span>
-            </div>
-            <small class="text-muted">${stock.name}</small>
-          </div>
-          <div class="card-body">
-            <div class="price-row">
-              <div class="current-price">$${stock.current_price?.toFixed(2) || 'N/A'}</div>
-              <div class="change ${trendColor}">
-                ${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%
+        html += `
+          <div class="col-md-6 col-lg-4 mb-4">
+            <div class="stock-card">
+              <div class="card-header">
+                <div class="symbol-container">
+                  <h5>${stock.symbol}</h5>
+                  <span class="badge ${getRecommendationClass(stock.recommendation)}">${stock.recommendation}</span>
+                </div>
+                <small class="text-muted">${stock.name}</small>
+              </div>
+              <div class="card-body">
+                <div class="price-row">
+                  <div class="current-price">$${stock.current_price?.toFixed(2) || 'N/A'}</div>
+                  <div class="change ${trendColor}">
+                    ${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%
+                  </div>
+                </div>
+                <div class="chart-container" onclick="showStockDetail('${stock.symbol}')">
+                  <canvas id="${chartId}" height="120"></canvas>
+                </div>
+                <div class="sentiment-row">
+                  <span class="sentiment-label">Sentiment:</span>
+                  <span class="sentiment-value">${stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A'}</span>
+                </div>
+                <div class="trade-buttons mt-2">
+                  <button class="btn btn-success btn-sm me-2 trade-btn" data-symbol="${stock.symbol}" data-side="buy">Buy</button>
+                  <button class="btn btn-danger btn-sm trade-btn" data-symbol="${stock.symbol}" data-side="sell">Sell</button>
+                </div>
+              </div>
+              <div class="card-footer">
+                <span class="sector-badge">${stock.sector}</span>
+                <span class="view-details" onclick="showStockDetail('${stock.symbol}')">View Details</span>
               </div>
             </div>
-            <div class="chart-container" onclick="showStockDetail('${stock.symbol}')">
-              <canvas id="${chartId}" height="120"></canvas>
-            </div>
-            <div class="sentiment-row">
-              <span class="sentiment-label">Sentiment:</span>
-              <span class="sentiment-value">${stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A'}</span>
-            </div>
-            <div class="trade-buttons mt-2">
-              <button class="btn btn-success btn-sm me-2 trade-btn" data-symbol="${stock.symbol}" data-side="buy">Buy</button>
-              <button class="btn btn-danger btn-sm trade-btn" data-symbol="${stock.symbol}" data-side="sell">Sell</button>
-            </div>
-          </div>
-          <div class="card-footer">
-            <span class="sector-badge">${stock.sector}</span>
-            <span class="view-details" onclick="showStockDetail('${stock.symbol}')">View Details</span>
-          </div>
-        </div>
-      </div>`;
-  });
+          </div>`;
+      });
 
-  document.getElementById("dashboardContent").innerHTML = html;
+      document.getElementById("dashboardContent").innerHTML = html;
 
-  // Fetch and render charts for each stock
-  for (let i = 0; i < stocks.length; i++) {
-    await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
-  }
+      // Fetch and render charts for each stock
+      for (let i = 0; i < stocks.length; i++) {
+        await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
+      }
 
-  // Add event listeners for trade buttons
-  document.querySelectorAll('.trade-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent triggering showStockDetail
-      const symbol = btn.dataset.symbol;
-      const side = btn.dataset.side;
-      placeTrade(symbol, side);
-    });
-  });
-}
+      // Add event listeners for trade buttons
+      document.querySelectorAll('.trade-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent triggering showStockDetail
+          const symbol = btn.dataset.symbol;
+          const side = btn.dataset.side;
+          placeTrade(symbol, side);
+        });
+      });
+    }
     
     function getRecommendationClass(recommendation) {
       switch(recommendation) {
@@ -495,35 +499,85 @@ async function renderStocks(stocks, period) {
       }
     }
 
-    async function renderStockChart(canvasId, symbol, period) {
-      const ctx = document.getElementById(canvasId)?.getContext('2d');
-      if (!ctx) return;
-      
+    async function renderStockChart(canvasId, symbol, period, retries = 2) {
+      // Safety: Validate canvasId and canvas element
+      if (!canvasId || typeof canvasId !== 'string') {
+        console.error('Invalid canvasId:', canvasId);
+        return;
+      }
+
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas?.getContext('2d');
+      if (!ctx) {
+        console.error(`Canvas context not found for canvasId: ${canvasId}`);
+        return;
+      }
+
+      // Safety: Destroy existing chart if present
       if (ctx.chart) {
         ctx.chart.destroy();
+        ctx.chart = null; // Ensure reference is cleared
       }
-      
-      try {
-        const response = await fetch(`/api/stock_chart/${symbol}/${period}`);
-        const chartConfig = await response.json();
-        
-        if (chartConfig.error) {
-          document.getElementById(canvasId).parentElement.innerHTML = `<p class="text-muted small text-center">${chartConfig.error}</p>`;
-          return;
+
+      // Safety: Retry logic for API calls
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          // Safety: Delay to avoid rate limiting (500ms delay, ~2 requests per second)
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          const response = await fetch(`/api/stock_chart/${symbol}/${period}`);
+          if (!response.ok) {
+            if (response.status === 429 && attempt < retries) {
+              console.warn(`Rate limit hit for ${symbol} (${period}), retrying after delay...`);
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer for rate limit
+              continue;
+            }
+            throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+          }
+
+          const chartConfig = await response.json();
+
+          // Safety: Check for error or empty chartConfig
+          if (chartConfig?.error || !chartConfig?.data?.datasets?.length) {
+            console.error(`Chart error for ${symbol} (${period}): ${chartConfig?.error || 'No data in response'}`);
+            const errorMessage = chartConfig?.error || 'No data available';
+            canvas.parentElement.innerHTML = `
+              <p class="text-muted small text-center">
+                ${errorMessage}
+                ${attempt === retries ? '' : '<br><button class="btn btn-link btn-sm" onclick="renderStockChart(\'' + canvasId + '\', \'' + symbol + '\', \'' + period + '\')">Retry</button>'}
+              </p>`;
+            return;
+          }
+
+          // Safety: Customize chart options for the main dashboard (smaller charts)
+          chartConfig.options = chartConfig.options || {};
+          chartConfig.options.scales = chartConfig.options.scales || {};
+          chartConfig.options.scales.x = chartConfig.options.scales.x || {};
+          chartConfig.options.scales.y = chartConfig.options.scales.y || {};
+          chartConfig.options.plugins = chartConfig.options.plugins || {};
+          chartConfig.options.plugins.tooltip = chartConfig.options.plugins.tooltip || {};
+
+          chartConfig.options.scales.x.display = false;
+          chartConfig.options.scales.y.display = false;
+          chartConfig.options.plugins.legend = { display: false };
+          chartConfig.options.plugins.tooltip.enabled = true;
+          chartConfig.data.datasets[0].borderWidth = 1.5;
+          chartConfig.data.datasets[0].pointRadius = 0;
+
+          // Render the chart
+          ctx.chart = new Chart(ctx, chartConfig);
+          return; // Success, exit the retry loop
+
+        } catch (error) {
+          console.error(`Error rendering chart for ${symbol} (${period}) (attempt ${attempt + 1}/${retries + 1}):`, error);
+          if (attempt === retries) {
+            canvas.parentElement.innerHTML = `
+              <p class="text-muted small text-center">
+                Error loading chart: ${error.message}
+                <br><button class="btn btn-link btn-sm" onclick="renderStockChart('${canvasId}', '${symbol}', '${period}')">Retry</button>
+              </p>`;
+          }
         }
-        
-        // Customize chart options for the main dashboard (smaller charts)
-        chartConfig.options.scales.x.display = false;
-        chartConfig.options.scales.y.display = false;
-        chartConfig.options.plugins.legend.display = false;
-        chartConfig.options.plugins.tooltip.enabled = true;
-        chartConfig.data.datasets[0].borderWidth = 1.5;
-        chartConfig.data.datasets[0].pointRadius = 0;
-        
-        ctx.chart = new Chart(ctx, chartConfig);
-      } catch (error) {
-        console.error(`Error rendering chart for ${symbol} (${period}):`, error);
-        document.getElementById(canvasId).parentElement.innerHTML = `<p class="text-muted small text-center">Error loading chart</p>`;
       }
     }
 

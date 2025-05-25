@@ -948,21 +948,27 @@ def get_stock_chart(symbol, period):
         elif end.weekday() == 6:  # Sunday
             end -= timedelta(days=2)
 
+        # For 1D, fetch the last trading day (e.g., Friday, May 23, 2025)
         if period == '1D':
-            start = end - timedelta(days=1)
+            start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+            start -= timedelta(days=1)  # Go back to the previous day
+            if start.weekday() >= 5:  # If Saturday, go back to Friday
+                start -= timedelta(days=(start.weekday() - 4))
             timeframe = '1Min'
+            start = start.replace(hour=14, minute=30)  # Market open (UTC)
+            end = end.replace(hour=21, minute=0)       # Market close (UTC)
         elif period == '1W':
             start = end - timedelta(days=7)
             timeframe = '1Hour'
+            start = start.replace(hour=14, minute=30)
+            end = end.replace(hour=21, minute=0)
         elif period == '1M':
             start = end - timedelta(days=30)
             timeframe = '1Day'
+            start = start.replace(hour=14, minute=30)
+            end = end.replace(hour=21, minute=0)
         else:
             return jsonify({'error': 'Invalid period. Use 1D, 1W, or 1M'}), 400
-
-        # Ensure start and end are on trading days
-        start = start.replace(hour=14, minute=30)  # Market open (UTC)
-        end = end.replace(hour=21, minute=0)       # Market close (UTC)
 
         bars = alpaca.get_bars(symbol, start, end, timeframe)
         if not bars:
