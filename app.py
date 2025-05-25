@@ -15,6 +15,12 @@ import pandas as pd
 from textblob import TextBlob
 import ta
 import joblib
+from alpaca.trading.client import TradingClient
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
 
 if os.environ.get("RENDER") != "true":  # Optional: only load .env locally
     from dotenv import load_dotenv
@@ -34,13 +40,11 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "534755939275-0g4f0ih1a9n7fl5ma
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "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")
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Alpaca API headers
+# Alpaca API clients
 ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
-ALPACA_HEADERS = {
-    "APCA-API-KEY-ID": ALPACA_API_KEY,
-    "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
-} if ALPACA_API_KEY and ALPACA_SECRET_KEY else {}
+data_client = StockHistoricalDataClient(api_key=ALPACA_API_KEY, secret_key=ALPACA_SECRET_KEY) if ALPACA_API_KEY and ALPACA_SECRET_KEY else None
+trading_client = TradingClient(api_key=ALPACA_API_KEY, secret_key=ALPACA_SECRET_KEY, paper=True) if ALPACA_API_KEY and ALPACA_SECRET_KEY else None
 
 # Define CNN Model
 class StockPredictor(nn.Module):
@@ -160,25 +164,27 @@ def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3)
     Calculated Start: {start_date.isoformat()}
     Calculated End: {end_date.isoformat()}
     """)
-    if not ALPACA_HEADERS:
+    if not data_client:
         logger.warning(f"No API keys set for {symbol}, returning empty data")
         return []
-    url = f"https://data.alpaca.markets/v2/stocks/{symbol}/bars"
-    params = {"start": start_date.isoformat(), "end": end_date.isoformat(), "timeframe": timeframe, "adjustment": "raw"}
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=ALPACA_HEADERS, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            if "bars" in data:
-                logger.info(f"Fetched {len(data['bars'])} bars for {symbol} ({timeframe})")
-                return data["bars"]
+            request_params = StockBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=TimeFrame.Minute if timeframe == "1Min" else TimeFrame.Hour if timeframe == "1Hour" else TimeFrame.Day,
+                start=start_date.isoformat(),
+                end=end_date.isoformat()
+            )
+            bars = data_client.get_stock_bars(request_params)
+            if bars and symbol in bars:
+                logger.info(f"Fetched {len(bars[symbol])} bars for {symbol} ({timeframe})")
+                return [bar.__dict__ for bar in bars[symbol]]
             else:
                 logger.warning(f"No bars found for {symbol} on attempt {attempt + 1}/{retries}")
                 if attempt == retries - 1:
                     return []
                 time.sleep(random.uniform(1, 3))
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logger.warning(f"Attempt {attempt + 1}/{retries} failed for {symbol}: {str(e)}")
             if attempt == retries - 1:
                 logger.error(f"Failed to fetch bars for {symbol} after {retries} attempts")
@@ -187,13 +193,14 @@ def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3)
     return []
 
 def fetch_alpaca_quote(symbol, retries=3):
-    if not ALPACA_HEADERS:
+    if not data_client:
         logger.warning(f"No API keys set for {symbol}, returning None")
         return None
-    url = f"https://data.alpaca.markets/v2/stocks/{symbol}/quotes/latest"
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=ALPACA_HEADERS, timeout=10)
+            # Note: alpaca-py does not directly support quotes via data_client; use trading_client or API call
+            url = f"https://data.alpaca.markets/v2/stocks/{symbol}/quotes/latest"
+            response = requests.get(url, headers={"APCA-API-KEY-ID": ALPACA_API_KEY, "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY}, timeout=10)
             response.raise_for_status()
             data = response.json()
             if "quote" in data:
@@ -213,20 +220,13 @@ def fetch_alpaca_quote(symbol, retries=3):
     return None
 
 def get_alpaca_account_id():
-    if not ALPACA_HEADERS:
+    if not trading_client:
         logger.warning("No API keys set, returning None for account ID")
         return None
-    url = "https://broker-api.alpaca.markets/v1/accounts"
     try:
-        response = requests.get(url, headers=ALPACA_HEADERS, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        if data and isinstance(data, list) and len(data) > 0:
-            return data[0]["id"]
-        else:
-            logger.error("No account ID found")
-            return None
-    except requests.exceptions.RequestException as e:
+        account = trading_client.get_account()
+        return account.id
+    except Exception as e:
         logger.error(f"Failed to fetch account ID: {str(e)}")
         return None
 
@@ -256,7 +256,7 @@ def get_last_trading_day(end_dt):
 
 def get_price_history(symbol, period):
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
-    end_dt = get_last_trading_day(now)  # Use the last trading day as the end date
+    end_dt = get_last_trading_day(now)
     end_dt = end_dt.replace(hour=16+5, minute=0, second=0, microsecond=0)  # 4:00 PM EST in UTC
 
     if period == "1D":
@@ -268,7 +268,7 @@ def get_price_history(symbol, period):
     elif period == "1M":
         start_dt = end_dt - timedelta(days=30)
         timeframe = "1Day"
-    elif period == "2W":  # For the 14-day trend on the main page
+    elif period == "2W":
         start_dt = end_dt - timedelta(days=14)
         timeframe = "1Day"
     else:
@@ -500,7 +500,7 @@ def get_news_articles(symbol, retries=3):
     for attempt in range(retries):
         try:
             url = f"https://data.alpaca.markets/v1beta1/news?symbols={symbol}&limit=5"
-            response = requests.get(url, headers=ALPACA_HEADERS, timeout=15)
+            response = requests.get(url, headers={"APCA-API-KEY-ID": ALPACA_API_KEY, "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY}, timeout=15)
             response.raise_for_status()
             data = response.json()
             if not isinstance(data, dict) or "news" not in data:
@@ -742,6 +742,11 @@ def api_stocks():
 @app.route('/api/stock_history/<symbol>/<period>')
 def api_stock_history(symbol, period):
     try:
+        # Validate symbol
+        if symbol not in STOCK_LIST:
+            logger.error(f"Invalid symbol: {symbol}")
+            return jsonify([{"error": f"Invalid symbol: {symbol}"}]), 400
+        
         history = get_price_history(symbol, period)
         return jsonify(history)
     except Exception as e:
@@ -771,8 +776,9 @@ def api_refresh():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/trade', methods=['POST'])
-def place_order():
+@app.route('/api/buy', methods=['POST'])
+def buy_stock():
+    logger.debug("Received buy request: %s", request.get_json())
     try:
         user_info = session.get('user')
         if not user_info:
@@ -782,14 +788,11 @@ def place_order():
             return jsonify({"error": "User email not found in session."}), 401
         if not can_user_trade(user_email):
             return jsonify({"error": f"Daily trade limit of {TRADE_LIMIT_PER_DAY} reached. Try again tomorrow."}), 429
-        data = request.json
+        data = request.get_json()
         symbol = data.get('symbol')
         qty = data.get('qty', 1)
-        side = data.get('side')
-        if not symbol or not side:
-            return jsonify({"error": "Missing required fields: symbol or side"}), 400
-        if side not in ['buy', 'sell']:
-            return jsonify({"error": "Invalid side. Must be 'buy' or 'sell'"}), 400
+        if not symbol or not qty:
+            return jsonify({"error": "Missing symbol or quantity"}), 400
         if symbol not in STOCK_LIST:
             return jsonify({"error": f"Invalid symbol: {symbol}"}), 400
         try:
@@ -800,22 +803,68 @@ def place_order():
             return jsonify({"error": "Invalid quantity. Must be a positive integer"}), 400
         if not is_market_open():
             return jsonify({"error": "Market is closed. Trades can only be placed during market hours (9:30 AM - 4:00 PM EST, Mon-Fri)."}), 403
-        account_id = get_alpaca_account_id()
-        if not account_id:
-            return jsonify({"error": "Failed to retrieve Alpaca account ID"}), 500
-        url = f"https://broker-api.alpaca.markets/v1/trading/accounts/{account_id}/orders"
-        payload = {"symbol": symbol, "qty": qty, "side": side, "type": "market", "time_in_force": "gtc"}
-        response = requests.post(url, json=payload, headers=ALPACA_HEADERS, timeout=10)
-        response.raise_for_status()
+        if not trading_client:
+            return jsonify({"error": "Alpaca trading client not initialized"}), 500
+
+        order = MarketOrderRequest(
+            symbol=symbol,
+            qty=qty,
+            side=OrderSide.BUY,
+            time_in_force=TimeInForce.GTC
+        )
+        response = trading_client.submit_order(order)
         increment_user_trade_count(user_email)
-        logger.info(f"{side.capitalize()} order placed for {qty} shares of {symbol} by user {user_email}")
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error placing {side} order for {symbol}: {str(e)}")
-        return jsonify({"error": f"Failed to place order: {str(e)}"}), 500
+        logger.info(f"Buy order placed for {qty} shares of {symbol} by user {user_email}")
+        return jsonify({"message": f"Buy order placed for {qty} shares of {symbol}", "order_id": response.id}), 200
+
     except Exception as e:
-        logger.error(f"Unexpected error in place_order: {str(e)}")
-        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+        logger.error(f"Error placing buy order for {symbol}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/sell', methods=['POST'])
+def sell_stock():
+    logger.debug("Received sell request: %s", request.get_json())
+    try:
+        user_info = session.get('user')
+        if not user_info:
+            return jsonify({"error": "User not authenticated. Please log in."}), 401
+        user_email = user_info.get('email')
+        if not user_email:
+            return jsonify({"error": "User email not found in session."}), 401
+        if not can_user_trade(user_email):
+            return jsonify({"error": f"Daily trade limit of {TRADE_LIMIT_PER_DAY} reached. Try again tomorrow."}), 429
+        data = request.get_json()
+        symbol = data.get('symbol')
+        qty = data.get('qty', 1)
+        if not symbol or not qty:
+            return jsonify({"error": "Missing symbol or quantity"}), 400
+        if symbol not in STOCK_LIST:
+            return jsonify({"error": f"Invalid symbol: {symbol}"}), 400
+        try:
+            qty = int(qty)
+            if qty <= 0:
+                raise ValueError("Quantity must be a positive integer")
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid quantity. Must be a positive integer"}), 400
+        if not is_market_open():
+            return jsonify({"error": "Market is closed. Trades can only be placed during market hours (9:30 AM - 4:00 PM EST, Mon-Fri)."}), 403
+        if not trading_client:
+            return jsonify({"error": "Alpaca trading client not initialized"}), 500
+
+        order = MarketOrderRequest(
+            symbol=symbol,
+            qty=qty,
+            side=OrderSide.SELL,
+            time_in_force=TimeInForce.GTC
+        )
+        response = trading_client.submit_order(order)
+        increment_user_trade_count(user_email)
+        logger.info(f"Sell order placed for {qty} shares of {symbol} by user {user_email}")
+        return jsonify({"message": f"Sell order placed for {qty} shares of {symbol}", "order_id": response.id}), 200
+
+    except Exception as e:
+        logger.error(f"Error placing sell order for {symbol}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -939,9 +988,10 @@ def not_found(e):
 @app.route('/api/stock_chart/<symbol>/<period>')
 def get_stock_chart(symbol, period):
     try:
-        alpaca = AlpacaAPI()
+        if not data_client:
+            return jsonify({'error': 'Alpaca data client not initialized'}), 500
         end = datetime.now(timezone.utc)
-        
+
         # Adjust for weekends: if today is Saturday or Sunday, use the last Friday
         if end.weekday() == 5:  # Saturday
             end -= timedelta(days=1)
@@ -951,29 +1001,36 @@ def get_stock_chart(symbol, period):
         # For 1D, fetch the last trading day (e.g., Friday, May 23, 2025)
         if period == '1D':
             start = end.replace(hour=0, minute=0, second=0, microsecond=0)
-            start -= timedelta(days=1)  # Go back to the previous day
+            start -= timedelta(days=1)
             if start.weekday() >= 5:  # If Saturday, go back to Friday
                 start -= timedelta(days=(start.weekday() - 4))
-            timeframe = '1Min'
+            timeframe = TimeFrame.Minute
             start = start.replace(hour=14, minute=30)  # Market open (UTC)
             end = end.replace(hour=21, minute=0)       # Market close (UTC)
         elif period == '1W':
             start = end - timedelta(days=7)
-            timeframe = '1Hour'
+            timeframe = TimeFrame.Hour
             start = start.replace(hour=14, minute=30)
             end = end.replace(hour=21, minute=0)
         elif period == '1M':
             start = end - timedelta(days=30)
-            timeframe = '1Day'
+            timeframe = TimeFrame.Day
             start = start.replace(hour=14, minute=30)
             end = end.replace(hour=21, minute=0)
         else:
             return jsonify({'error': 'Invalid period. Use 1D, 1W, or 1M'}), 400
 
-        bars = alpaca.get_bars(symbol, start, end, timeframe)
-        if not bars:
+        request_params = StockBarsRequest(
+            symbol_or_symbols=symbol,
+            timeframe=timeframe,
+            start=start.isoformat(),
+            end=end.isoformat()
+        )
+        bars = data_client.get_stock_bars(request_params)
+        if not bars or symbol not in bars:
             return jsonify({'error': f'No data available for {symbol} in the selected period'})
 
+        bars = [bar.__dict__ for bar in bars[symbol]]
         dates = [bar['t'] for bar in bars]
         prices = [bar['c'] for bar in bars]
 
