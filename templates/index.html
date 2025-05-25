@@ -414,37 +414,37 @@
       }
     }
     
-    async function updateDetailChart(period) {
-      if (!currentDetailSymbol) return;
-      
-      document.querySelectorAll('.period-selector .btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
-      
-      try {
-        const response = await fetch(`/api/stock_chart/${currentDetailSymbol}/${period}`);
-        const chartConfig = await response.json();
-        
-        if (chartConfig && !chartConfig.error) {
-          renderDetailStockChart(chartConfig);
-        } else {
-          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${chartConfig.error || 'No data available for this period.'}</p>`;
-        }
-      } catch (error) {
-        console.error(`Error updating chart for ${currentDetailSymbol}:`, error);
-        document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">Error loading chart: Failed to fetch historical data. This may be due to API restrictions.</p>`;
-      }
+async function updateDetailChart(period) {
+  if (!currentDetailSymbol) return;
+
+  // Update active button styling
+  document.querySelectorAll('.period-selector .btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
+
+  try {
+    const response = await fetch(`/api/stock_chart/${currentDetailSymbol}/${period}`);
+    const chartData = await response.json();
+
+    if (chartData.error) {
+      document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${chartData.error}</p>`;
+      return;
     }
-    
-    function renderDetailStockChart(chartConfig) {
-      const ctx = document.getElementById('detailChart').getContext('2d');
-      if (ctx.chart) {
-        ctx.chart.destroy();
-      }
-      
-      ctx.chart = new Chart(ctx, chartConfig);
+
+    const ctx = document.getElementById('detailChart').getContext('2d');
+
+    // Destroy old chart if exists
+    if (ctx.chart) {
+      ctx.chart.destroy();
     }
+
+    // Render new chart
+    ctx.chart = new Chart(ctx, chartData);
+  } catch (error) {
+    console.error(`Error loading chart for ${currentDetailSymbol}: ${error}`);
+    document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-danger">Chart load error: ${error}</p>`;
+  }
+}
+
     
     function renderDetailNews(articles) {
       const newsContainer = document.getElementById('detailNews');
