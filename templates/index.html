@@ -247,19 +247,31 @@
           document.getElementById("dashboardContent").innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
           
           const response = await fetch('/api/stocks?t=' + Date.now());
-          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          const data = await response.json().catch(err => {
+            console.error('Error parsing stock data:', err);
+            return { stocks: [], summary: { BUY: 0, HOLD: 0, SELL: 0 }, last_updated: new Date().toLocaleString() };
+          });
+          
           if (data && data.stocks) {
             allStocks = data.stocks;
             document.getElementById("dashboardContent").innerHTML = '';
             renderCounts(data.summary);
             renderStocks(allStocks, selectedTimePeriods.main);
             populateSectorFilter(allStocks);
-            document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated}`;
+            document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated || new Date().toLocaleString()}`;
             return;
           }
         } catch (error) {
+          console.error('Error loading dashboard:', error);
           if (attempt === retries) {
-            document.getElementById("dashboardContent").innerHTML = `<p class="text-danger">Error loading data: ${error}. <button class="btn btn-sm btn-link" onclick="loadDashboard()">Retry</button></p>`;
+            document.getElementById("dashboardContent").innerHTML = `
+              <p class="text-danger">Error loading data: ${error.message}. 
+              <button class="btn btn-sm btn-link" onclick="loadDashboard()">Retry</button></p>`;
+            renderCounts({ BUY: 0, HOLD: 0, SELL: 0 }); // Fallback counts
+            document.getElementById("lastUpdated").innerText = `Last updated: ${new Date().toLocaleString()}`;
           }
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -414,37 +426,36 @@
       }
     }
     
-async function updateDetailChart(period) {
-  if (!currentDetailSymbol) return;
+    async function updateDetailChart(period) {
+      if (!currentDetailSymbol) return;
 
-  // Update active button styling
-  document.querySelectorAll('.period-selector .btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
+      // Update active button styling
+      document.querySelectorAll('.period-selector .btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
 
-  try {
-    const response = await fetch(`/api/stock_chart/${currentDetailSymbol}/${period}`);
-    const chartData = await response.json();
+      try {
+        const response = await fetch(`/api/stock_chart/${currentDetailSymbol}/${period}`);
+        const chartData = await response.json();
 
-    if (chartData.error) {
-      document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${chartData.error}</p>`;
-      return;
+        if (chartData.error) {
+          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${chartData.error}</p>`;
+          return;
+        }
+
+        const ctx = document.getElementById('detailChart').getContext('2d');
+
+        // Destroy old chart if exists
+        if (ctx.chart) {
+          ctx.chart.destroy();
+        }
+
+        // Render new chart
+        ctx.chart = new Chart(ctx, chartData);
+      } catch (error) {
+        console.error(`Error loading chart for ${currentDetailSymbol}: ${error}`);
+        document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-danger">Chart load error: ${error}</p>`;
+      }
     }
-
-    const ctx = document.getElementById('detailChart').getContext('2d');
-
-    // Destroy old chart if exists
-    if (ctx.chart) {
-      ctx.chart.destroy();
-    }
-
-    // Render new chart
-    ctx.chart = new Chart(ctx, chartData);
-  } catch (error) {
-    console.error(`Error loading chart for ${currentDetailSymbol}: ${error}`);
-    document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-danger">Chart load error: ${error}</p>`;
-  }
-}
-
     
     function renderDetailNews(articles) {
       const newsContainer = document.getElementById('detailNews');
