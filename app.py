@@ -943,6 +943,20 @@ def live_prediction(symbol):
     except Exception as e:
         logger.error(f"Error generating live prediction for {symbol}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+from flask import render_template
+
+from flask import render_template
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_spa(path):
+    if path != "" and os.path.exists(os.path.join("static", path)):
+        return send_from_directory("static", path)
+    return render_template("index.html")
+
+
+
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
@@ -950,5 +964,7 @@ if __name__ == "__main__":
             analyze_all_stocks()
         except Exception as e:
             logger.error(f"Initial analysis error: {str(e)}")
+            with open('data/stock_analysis.json', 'w') as f:
+                json.dump({"stocks": [], "summary": {"BUY": 0, "HOLD": 0, "SELL": 0}, "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}, f, indent=2)
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
