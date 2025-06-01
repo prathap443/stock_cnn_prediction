@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, session, url_for
+from flask import Flask, jsonify, request, session
 import requests
 import json
 import os
@@ -23,16 +23,11 @@ if os.environ.get("RENDER") != "true":  # Optional: only load .env locally
 # Setup logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('stock_analysis_webapp')
+logger = logging.getLogger('stock_analysis_api')
 
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-
-# Google OAuth details
-GOOGLE_CLIENT_ID = "534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = "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"
-GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
 # Alpaca API headers
 ALPACA_HEADERS = {
@@ -89,7 +84,6 @@ FEATURE_COLUMNS = [
 
 # Create directories
 os.makedirs('data', exist_ok=True)
-os.makedirs('static', exist_ok=True)
 
 # Stock lists
 base_stocks = [
@@ -161,7 +155,6 @@ def is_market_open():
     return market_open <= est_time <= market_close
 
 def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3):
-    # Ensure dates are in the past
     now = datetime.utcnow()
     if start_date >= now or end_date > now:
         logger.warning(f"Invalid date range for {symbol}: start={start_date}, end={end_date} are in the future")
@@ -272,7 +265,6 @@ def get_price_history(symbol, period):
     est_offset = timedelta(hours=-5)
     est_now = now + est_offset
 
-    # Ensure end_dt is not in the future
     end_dt = min(now, datetime.utcnow().replace(hour=21, minute=0, second=0, microsecond=0))
     
     if period == "1D":
@@ -296,7 +288,6 @@ def get_price_history(symbol, period):
         start_dt = end_dt - timedelta(days=14)
         timeframe = "1Day"
 
-    # Ensure start_dt is before end_dt and not in the future
     if start_dt >= end_dt:
         logger.warning(f"Invalid date range for {symbol}: start={start_dt}, end={end_dt}")
         return [{"error": f"Invalid date range for {period} data"}]
@@ -338,14 +329,9 @@ def get_stock_info(symbol):
         try:
             return {
                 "symbol": symbol,
-                "name": symbol,  # Alpaca doesn't provide company name
-                "current_price": quote.get('ap', None),  # Ask price
+                "name": symbol,
+                "current_price": quote.get('ap', None),
                 "sector": SECTOR_MAPPING.get(symbol, "Unknown"),
-                "industry": "Unknown",
-                "market_cap": None,
-                "pe_ratio": None,
-                "eps": None,
-                "dividend_yield": 0.0
             }
         except Exception as e:
             logger.error(f"Error processing quote for {symbol}: {str(e)}")
@@ -354,10 +340,6 @@ def get_stock_info(symbol):
         "name": symbol,
         "current_price": None,
         "sector": SECTOR_MAPPING.get(symbol, "Unknown"),
-        "industry": "Unknown",
-        "pe_ratio": None,
-        "eps": None,
-        "dividend_yield": 0.0
     }
 
 def get_historical_data(symbol, days=60):
@@ -530,8 +512,7 @@ def get_news_articles(symbol, retries=3):
     sentiment_score = 0
     for attempt in range(retries):
         try:
-           添加缺失的代码块
-url = f"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}"
+            url = f"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}"
             headers = {"User-Agent": "Mozilla/5.0"}
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
@@ -572,7 +553,7 @@ url = f"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}"
                 continue
 
             sentiment_score = TextBlob(full_text).sentiment.polarity
-            logger.info(f"Sentiment for {symbol}: {sentiment_score:.3f} based on {len(articles)} articles: {texts}")
+            logger.info(f"Sentiment for {symbol}: {sentiment_score:.3f} based on {len(articles)} articles")
             return articles, sentiment_score
         except Exception as e:
             logger.warning(f"News fetch error for {symbol} on attempt {attempt + 1}/{retries}: {str(e)}")
@@ -604,7 +585,6 @@ def analyze_stock(symbol):
         macd = safe_float(macd_str, default=0)
         volume_score = 1 if "Increasing" in technical_indicators.get("volume_analysis", "") else 0
 
-        # Removed PE_Ratio, EPS, Dividend_Yield from features_dict
         features_dict = {
             'RSI': rsi,
             'MACD': macd,
@@ -618,7 +598,6 @@ def analyze_stock(symbol):
         }
         features_df = pd.DataFrame([features_dict], columns=FEATURE_COLUMNS)
 
-        # No need to fill PE_Ratio, EPS, Dividend_Yield as they are not in FEATURE_COLUMNS
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
         if model is not None and scaler is not None:
@@ -631,7 +610,7 @@ def analyze_stock(symbol):
             recommendation = "HOLD"
 
         reason = (
-            f"🤖 CNN-based prediction using "
+            f"CNN-based prediction using "
             f"RSI={rsi:.1f}, MACD={macd:.2f}, SMA_50={sma_50:.2f}, BB_Width={bb_width:.2f}, "
             f"Stochastic={stochastic:.1f}, Sentiment={news_sentiment:.2f}, "
             f"Volume_Score={volume_score}, Change_5d={percent_change_5d:.2f}%, "
@@ -661,7 +640,7 @@ def analyze_stock(symbol):
             "recommendation": "HOLD",
             "percent_change_2w": 0,
             "current_price": 100.0,
-            "reason": "⚠️ Analysis failed. Defaulting to HOLD.",
+            "reason": "Analysis failed. Defaulting to HOLD.",
             "technical_indicators": {
                 "rsi": "N/A", "macd": "N/A", 
                 "volume_analysis": "N/A", "trend": "N/A"
@@ -724,92 +703,61 @@ def analyze_all_stocks():
         logger.error(f"Error in analyze_all_stocks: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
 
-@app.route('/')
-def index():
-    user_info = session.get('user')
-    if user_info:
-        return render_template('index.html', user_name=user_info.get('name', 'User'))
-    return render_template('login.html')
-
-@app.route('/login')
+# Simple authentication for API access (replace with token-based auth if needed)
+@app.route('/api/login', methods=['POST'])
 def login():
-    discovery_doc = requests.get(GOOGLE_DISCOVERY_URL).json()
-    authorization_endpoint = discovery_doc["authorization_endpoint"]
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    # Replace with your own authentication logic
+    if username == "admin" and password == "password123":
+        session['user'] = {"username": username}
+        return jsonify({"success": True, "message": "Logged in successfully"})
+    return jsonify({"error": "Invalid credentials"}), 401
 
-    request_uri = f"{authorization_endpoint}?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri=https://stock-cnn-prediction.onrender.com/callback&scope=openid%20email%20profile"
-
-    return redirect(request_uri)
-
-@app.route('/callback', methods=["POST"])
-def callback():
-    try:
-        token = request.form.get('credential')
-        if not token:
-            return jsonify({"error": "Missing credential token"}), 400
-
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as grequests
-
-        idinfo = id_token.verify_oauth2_token(
-            token,
-            grequests.Request(),
-            GOOGLE_CLIENT_ID
-        )
-        session['user'] = {
-            "name": idinfo.get('name'),
-            "email": idinfo.get('email'),
-            "picture": idinfo.get('picture')
-        }
-
-        return redirect("https://stock-cnn-prediction.onrender.com/")
-        
-    except Exception as e:
-        logger.error(f"Error verifying ID token: {str(e)}")
-        return jsonify({"error": "Authentication failed"}), 400
-
-@app.route('/logout')
+@app.route('/api/logout')
 def logout():
     session.clear()
-    return redirect('/')
+    return jsonify({"success": True, "message": "Logged out successfully"})
 
 @app.route('/api/stocks')
 def api_stocks():
     try:
+        if not session.get('user'):
+            return jsonify({"error": "Unauthorized access"}), 401
+        
         cache_duration = 300 if is_market_open() else 1800
         if os.path.exists('data/stock_analysis.json'):
             with open('data/stock_analysis.json', 'r') as f:
                 data = json.load(f)
                 last_updated = datetime.strptime(data['last_updated'], "%Y-%m-%d %H:%M:%S")
-                age = datetime.now() - last_updated
-                if age.total_seconds() < cache_duration:
+                age = (datetime.now() - last_updated).total_seconds()
+                if age < cache_duration:
                     return jsonify(data)
         return jsonify(analyze_all_stocks())
     except Exception as e:
-        error_msg = f"API error: {str(e)}"
-        logger.error(error_msg)
-        return jsonify({"error": error_msg}), 500
+        logger.error(f"API error: {str(e)}")
+        return jsonify({"error": f"API error: {str(e)}"}), 500
 
 @app.route('/api/stock_history/<symbol>/<period>')
 def api_stock_history(symbol, period):
     try:
+        if not session.get('user'):
+            return jsonify({"error": "Unauthorized access"}), 401
+        
         history = get_price_history(symbol, period)
         return jsonify(history)
     except Exception as e:
         logger.error(f"Error fetching history for {symbol} ({period}): {str(e)}")
         return jsonify([{"error": f"Error fetching {period} history: {str(e)}"}]), 500
 
-@app.route('/api/stock_news/<symbol>')
-def api_stock_news(symbol):
-    try:
-        articles, _ = get_news_articles(symbol, retries=3)
-        return jsonify(articles)
-    except Exception as e:
-        logger.error(f"Error fetching news for {symbol}: {str(e)}")
-        return jsonify({"error": f"Error fetching news: {str(e)}"}), 500
-
 @app.route('/api/refresh', methods=['POST'])
 def api_refresh():
     try:
+        if not session.get('user'):
+            return jsonify({"error": "Unauthorized access"}), 401
+        
         if os.path.exists('data/stock_analysis.json'):
             os.remove('data/stock_analysis.json')
         data = analyze_all_stocks()
@@ -817,15 +765,14 @@ def api_refresh():
             raise ValueError("Invalid format returned from analysis")
         return jsonify({"success": True, "message": "Refreshed successfully"})
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error refreshing data: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/buy", methods=["POST"])
 def buy_stock():
     try:
         if not session.get('user'):
-            return jsonify({"error": "User not authenticated"}), 401
+            return jsonify({"error": "Unauthorized access"}), 401
         
         data = request.json
         symbol = data.get("symbol")
@@ -871,7 +818,7 @@ def buy_stock():
 def sell_stock():
     try:
         if not session.get('user'):
-            return jsonify({"error": "User not authenticated"}), 401
+            return jsonify({"error": "Unauthorized access"}), 401
         
         data = request.json
         symbol = data.get("symbol")
@@ -913,43 +860,12 @@ def sell_stock():
         logger.error(f"Unexpected error in sell_stock: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    try:
-        data = request.get_json()
-        features_dict = {
-            'RSI': data.get("rsi", 50),
-            'MACD': data.get("macd", 0),
-            'SMA_50': data.get("sma_50", 0),
-            'BB_Width': data.get("bb_width", 0),
-            'Stochastic': data.get("stochastic", 50),
-            'News_Sentiment': data.get("news_sentiment", 0),
-            'volume_score': data.get("volume_score", 0),
-            'percent_change_5d': data.get("percent_change_5d", 0),
-            'volatility': data.get("volatility", 0)
-        }
-        features_df = pd.DataFrame([features_dict], columns=FEATURE_COLUMNS)
-        features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
-
-        if model is not None and scaler is not None:
-            features_array = scaler.transform(features_df)
-            features_tensor = torch.tensor(features_array, dtype=torch.float).unsqueeze(0)
-            with torch.no_grad():
-                prediction = model(features_tensor).argmax(dim=1).item()
-            recommendation = label_encoder.inverse_transform([prediction])[0]
-        else:
-            recommendation = "HOLD"
-
-        return jsonify({
-            "recommendation": recommendation,
-            "reason": f"CNN-based prediction using RSI={features_df['RSI'][0]}, MACD={features_df['MACD'][0]}, volume_score={features_df['volume_score'][0]}, change={features_df['percent_change_5d'][0]}, volatility={features_df['volatility'][0]}"
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 @app.route('/api/live_prediction/<symbol>')
 def live_prediction(symbol):
     try:
+        if not session.get('user'):
+            return jsonify({"error": "Unauthorized access"}), 401
+        
         history_1d = get_price_history(symbol, "1D")
         if not history_1d or ('error' in history_1d[0] and history_1d[0]['error']):
             return jsonify({"error": "Insufficient intraday data for prediction"}), 400
@@ -1027,14 +943,6 @@ def live_prediction(symbol):
     except Exception as e:
         logger.error(f"Error generating live prediction for {symbol}: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-@app.route("/retrain", methods=["POST"])
-def retrain_model():
-    try:
-        import train_model
-        return jsonify({"success": True, "message": "Model retrained successfully."})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
