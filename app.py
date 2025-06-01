@@ -15,6 +15,7 @@ import pandas as pd
 from textblob import TextBlob
 import ta
 import joblib
+from flask import send_from_directory
 
 if os.environ.get("RENDER") != "true":  # Optional: only load .env locally
     from dotenv import load_dotenv
