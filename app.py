@@ -710,12 +710,15 @@ def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    
-    # Replace with your own authentication logic
-    if username == "admin" and password == "password123":
+
+    env_username = os.getenv("ADMIN_USERNAME")
+    env_password = os.getenv("ADMIN_PASSWORD")
+
+    if username == env_username and password == env_password:
         session['user'] = {"username": username}
         return jsonify({"success": True, "message": "Logged in successfully"})
     return jsonify({"error": "Invalid credentials"}), 401
+
 
 @app.route('/api/logout')
 def logout():
