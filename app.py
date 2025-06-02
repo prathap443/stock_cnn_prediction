@@ -16,6 +16,10 @@ from textblob import TextBlob
 import ta
 import joblib
 from flask import send_from_directory
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 
 if os.environ.get("RENDER") != "true":  # Optional: only load .env locally
     from dotenv import load_dotenv
@@ -705,19 +709,22 @@ def analyze_all_stocks():
         return {"error": f"Analysis failed: {str(e)}"}
 
 # Simple authentication for API access (replace with token-based auth if needed)
+
+
+APP_USERNAME = os.getenv("APP_USERNAME")
+APP_PASSWORD = os.getenv("APP_PASSWORD")
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
 
-    env_username = os.getenv("ADMIN_USERNAME")
-    env_password = os.getenv("ADMIN_PASSWORD")
-
-    if username == env_username and password == env_password:
+    if username == APP_USERNAME and password == APP_PASSWORD:
         session['user'] = {"username": username}
         return jsonify({"success": True, "message": "Logged in successfully"})
     return jsonify({"error": "Invalid credentials"}), 401
+
 
 
 @app.route('/api/logout')
