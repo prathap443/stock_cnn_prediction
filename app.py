@@ -959,13 +959,23 @@ from flask import render_template
 
 from flask import render_template
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
 def serve_spa(path):
     if path != "" and os.path.exists(os.path.join("static", path)):
         return send_from_directory("static", path)
-    return render_template("index.html")
+    return send_from_directory("static", "index.html")  # Serve index.html for root and unknown paths
 
+# Ensure API routes are not overridden by serve_spa
+@app.route('/api/stocks')
+def api_stocks():
+    try:
+        if not session.get('user'):
+            return jsonify({"error": "Unauthorized access"}), 401
+        # ... (rest of the api_stocks function remains the same)
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return jsonify({"error": f"API error: {str(e)}"}), 500
 
 
 

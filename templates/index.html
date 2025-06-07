@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="/static/style.css" />
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     .period-selector-main {
       margin-bottom: 15px;
@@ -27,6 +26,10 @@
       cursor: pointer;
       opacity: 0.8;
     }
+    #login-section { display: block; }
+    .logged-in #login-section { display: none; }
+    .logged-in .dashboard-content { display: block; }
+    .dashboard-content { display: none; }
   </style>
 </head>
 <body>
@@ -43,26 +46,16 @@
           <span class="theme-icon">🌓</span> Toggle Theme
         </button>
         <div class="logout-button">
-          <a href="/logout" class="btn btn-outline-danger">Logout</a>
+          <a href="#" class="btn btn-outline-danger" onclick="logout()">Logout</a>
         </div>
       </div>
     </div>
 
-    <!-- Google Sign-In Section -->
-    <div class="mb-4 text-center">
-      <div id="g_id_onload"
-           data-client_id="534755939275-0g4f0ih1a9n7fl5mao1f418oamh614r2.apps.googleusercontent.com"
-           data-login_uri="https://stock-cnn-prediction.onrender.com/callback"
-           data-auto_prompt="false">
-      </div>
-      <div class="g_id_signin"
-           data-type="standard"
-           data-size="large"
-           data-theme="outline"
-           data-text="sign_in_with"
-           data-shape="rectangular"
-           data-logo_alignment="left">
-      </div>
+    <!-- Login Section -->
+    <div id="login-section" class="mb-4 text-center">
+      <input type="text" id="username" class="form-control mb-2" placeholder="Username" />
+      <input type="password" id="password" class="form-control mb-2" placeholder="Password" />
+      <button class="btn btn-primary" onclick="login()">Login</button>
       <p class="mt-2">Don't have an account? <a href="/register">Register here</a></p>
     </div>
 
@@ -104,23 +97,8 @@
         <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
         <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
         <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/meta.png" alt="Meta" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/amazon.png" alt="Amazon" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
+        <!-- Repeat for carousel effect -->
         <img src="/static/logos/apple.png" alt="Apple" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/meta.png" alt="Meta" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/amazon.png" alt="Amazon" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/intel.png" alt="Intel" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/amd.png" alt="AMD" onerror="console.warn(`Image failed to load: ${this.src}`)">
-        <img src="/static/logos/netflix.png" alt="Netflix" onerror="console.warn(`Image failed to load: ${this.src}`)">
         <img src="/static/logos/google.png" alt="Google" onerror="console.warn(`Image failed to load: ${this.src}`)">
         <img src="/static/logos/tesla.png" alt="Tesla" onerror="console.warn(`Image failed to load: ${this.src}`)">
         <img src="/static/logos/nvidia.png" alt="Nvidia" onerror="console.warn(`Image failed to load: ${this.src}`)">
@@ -160,7 +138,7 @@
       </div>
     </div>
 
-    <div id="dashboardContent" class="row g-4"></div>
+    <div id="dashboardContent" class="row g-4 dashboard-content"></div>
   </div>
 
   <!-- Stock Detail Modal -->
@@ -238,16 +216,55 @@
   <script>
     let allStocks = [];
     let selectedRecommendation = '';
-    let selectedTimePeriods = { main: '1D' }; // Default to 1D for main dashboard
+    let selectedTimePeriods = { main: '1D' };
     let currentDetailSymbol = '';
-    
+    let isLoggedIn = false;
+
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+      if (data.success) {
+        isLoggedIn = true;
+        document.body.classList.add('logged-in');
+        alert('Logged in successfully');
+        loadDashboard();
+      } else {
+        alert(data.error || 'Login failed');
+      }
+    }
+
+    async function logout() {
+      const response = await fetch('/api/logout');
+      const data = await response.json();
+      if (data.success) {
+        isLoggedIn = false;
+        document.body.classList.remove('logged-in');
+        allStocks = [];
+        document.getElementById('dashboardContent').innerHTML = '';
+        renderCounts({ BUY: 0, HOLD: 0, SELL: 0 });
+        alert('Logged out successfully');
+      }
+    }
+
     async function loadDashboard(retries = 2) {
+      if (!isLoggedIn) {
+        document.getElementById('dashboardContent').innerHTML = '<p class="text-danger">Please log in to view data. <button class="btn btn-sm btn-link" onclick="document.getElementById(\'login-section\').scrollIntoView()">Login</button></p>';
+        return;
+      }
+
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          document.getElementById("dashboardContent").innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+          document.getElementById('dashboardContent').innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
           
           const response = await fetch('/api/stocks?t=' + Date.now());
           if (!response.ok) {
+            if (response.status === 401) throw new Error('Unauthorized - Please log in');
             throw new Error(`HTTP error! Status: ${response.status}`);
           }
           const data = await response.json().catch(err => {
@@ -257,21 +274,21 @@
           
           if (data && data.stocks) {
             allStocks = data.stocks;
-            document.getElementById("dashboardContent").innerHTML = '';
+            document.getElementById('dashboardContent').innerHTML = '';
             renderCounts(data.summary);
             renderStocks(allStocks, selectedTimePeriods.main);
             populateSectorFilter(allStocks);
-            document.getElementById("lastUpdated").innerText = `Last updated: ${data.last_updated || new Date().toLocaleString()}`;
+            document.getElementById('lastUpdated').innerText = `Last updated: ${data.last_updated || new Date().toLocaleString()}`;
             return;
           }
         } catch (error) {
           console.error('Error loading dashboard:', error);
           if (attempt === retries) {
-            document.getElementById("dashboardContent").innerHTML = `
+            document.getElementById('dashboardContent').innerHTML = `
               <p class="text-danger">Error loading data: ${error.message}. 
               <button class="btn btn-sm btn-link" onclick="loadDashboard()">Retry</button></p>`;
-            renderCounts({ BUY: 0, HOLD: 0, SELL: 0 }); // Fallback counts
-            document.getElementById("lastUpdated").innerText = `Last updated: ${new Date().toLocaleString()}`;
+            renderCounts({ BUY: 0, HOLD: 0, SELL: 0 });
+            document.getElementById('lastUpdated').innerText = `Last updated: ${new Date().toLocaleString()}`;
           }
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -289,9 +306,9 @@
     }
 
     function renderCounts(summary) {
-      document.getElementById("buyCount").innerText = summary.BUY || 0;
-      document.getElementById("holdCount").innerText = summary.HOLD || 0;
-      document.getElementById("sellCount").innerText = summary.SELL || 0;
+      document.getElementById('buyCount').innerText = summary.BUY || 0;
+      document.getElementById('holdCount').innerText = summary.HOLD || 0;
+      document.getElementById('sellCount').innerText = summary.SELL || 0;
     }
 
     async function renderStocks(stocks, period) {
@@ -338,17 +355,15 @@
           </div>`;
       });
 
-      document.getElementById("dashboardContent").innerHTML = html;
+      document.getElementById('dashboardContent').innerHTML = html;
 
-      // Fetch and render charts for each stock
       for (let i = 0; i < stocks.length; i++) {
         await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
       }
 
-      // Add event listeners for trade buttons
       document.querySelectorAll('.trade-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          e.stopPropagation(); // Prevent triggering showStockDetail
+          e.stopPropagation();
           const symbol = btn.dataset.symbol;
           const side = btn.dataset.side;
           placeTrade(symbol, side);
@@ -368,16 +383,16 @@
       if (!confirm(`Are you sure you want to ${side} ${symbol}? (1 share)`)) return;
 
       try {
-        const response = await fetch('/trade', {
+        const response = await fetch('/api/' + side, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbol, qty: 1, side })
+          body: JSON.stringify({ symbol, quantity: 1 })
         });
         const data = await response.json();
         if (data.error) alert(data.error);
         else {
           alert(`${side.toUpperCase()} order placed for ${symbol}!`);
-          await loadDashboard(); // Refresh to update counts
+          await loadDashboard();
         }
       } catch (error) {
         alert(`Error placing trade: ${error}`);
@@ -415,7 +430,7 @@
                                 stock.recommendation === 'SELL' ? 'text-danger' : 'text-warning');
         
         renderDetailNews(stock.news_articles);
-        getLiveDetailPrediction(symbol);
+        await getLiveDetailPrediction(symbol);
         updateDetailChart('1M');
         
         const modal = new bootstrap.Modal(document.getElementById('stockDetailModal'));
@@ -429,12 +444,11 @@
     async function updateDetailChart(period) {
       if (!currentDetailSymbol) return;
 
-      // Update active button styling
       document.querySelectorAll('.period-selector .btn').forEach(btn => btn.classList.remove('active'));
       document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
 
       try {
-        const response = await fetch(`/api/stock_chart/${currentDetailSymbol}/${period}`);
+        const response = await fetch(`/api/stock_history/${currentDetailSymbol}/${period}`);
         const chartData = await response.json();
 
         if (chartData.error) {
@@ -443,14 +457,25 @@
         }
 
         const ctx = document.getElementById('detailChart').getContext('2d');
+        if (ctx.chart) ctx.chart.destroy();
 
-        // Destroy old chart if exists
-        if (ctx.chart) {
-          ctx.chart.destroy();
-        }
-
-        // Render new chart
-        ctx.chart = new Chart(ctx, chartData);
+        ctx.chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: chartData.map(d => d.date),
+            datasets: [{
+              label: 'Price',
+              data: chartData.map(d => d.close),
+              borderColor: '#36A2EB',
+              backgroundColor: 'rgba(54, 162, 235, 0.2)',
+              fill: true
+            }]
+          },
+          options: {
+            scales: { x: { display: false }, y: { display: false } },
+            plugins: { legend: { display: false }, tooltip: { enabled: true } }
+          }
+        });
       } catch (error) {
         console.error(`Error loading chart for ${currentDetailSymbol}: ${error}`);
         document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-danger">Chart load error: ${error}</p>`;
@@ -511,7 +536,6 @@
     }
 
     async function renderStockChart(canvasId, symbol, period, retries = 2) {
-      // Safety: Validate canvasId and canvas element
       if (!canvasId || typeof canvasId !== 'string') {
         console.error('Invalid canvasId:', canvasId);
         return;
@@ -524,69 +548,55 @@
         return;
       }
 
-      // Safety: Destroy existing chart if present
       if (ctx.chart) {
         ctx.chart.destroy();
-        ctx.chart = null; // Ensure reference is cleared
+        ctx.chart = null;
       }
 
-      // Safety: Retry logic for API calls
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          // Safety: Delay to avoid rate limiting (500ms delay, ~2 requests per second)
           await new Promise(resolve => setTimeout(resolve, 500));
-
-          const response = await fetch(`/api/stock_chart/${symbol}/${period}`);
+          const response = await fetch(`/api/stock_history/${symbol}/${period}`);
           if (!response.ok) {
             if (response.status === 429 && attempt < retries) {
               console.warn(`Rate limit hit for ${symbol} (${period}), retrying after delay...`);
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer for rate limit
+              await new Promise(resolve => setTimeout(resolve, 2000));
               continue;
             }
             throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
           }
 
-          const chartConfig = await response.json();
-
-          // Safety: Check for error or empty chartConfig
-          if (chartConfig?.error || !chartConfig?.data?.datasets?.length) {
-            console.error(`Chart error for ${symbol} (${period}): ${chartConfig?.error || 'No data in response'}`);
-            const errorMessage = chartConfig?.error || 'No data available';
-            canvas.parentElement.innerHTML = `
-              <p class="text-muted small text-center">
-                ${errorMessage}
-                ${attempt === retries ? '' : '<br><button class="btn btn-link btn-sm" onclick="renderStockChart(\'' + canvasId + '\', \'' + symbol + '\', \'' + period + '\')">Retry</button>'}
-              </p>`;
+          const chartData = await response.json();
+          if (chartData.error || !chartData.length) {
+            console.error(`Chart error for ${symbol} (${period}): ${chartData.error || 'No data in response'}`);
+            canvas.parentElement.innerHTML = `<p class="text-muted small text-center">${chartData.error || 'No data available'}${attempt === retries ? '' : '<br><button class="btn btn-link btn-sm" onclick="renderStockChart(\'' + canvasId + '\', \'' + symbol + '\', \'' + period + '\')">Retry</button>'}</p>`;
             return;
           }
 
-          // Safety: Customize chart options for the main dashboard (smaller charts)
-          chartConfig.options = chartConfig.options || {};
-          chartConfig.options.scales = chartConfig.options.scales || {};
-          chartConfig.options.scales.x = chartConfig.options.scales.x || {};
-          chartConfig.options.scales.y = chartConfig.options.scales.y || {};
-          chartConfig.options.plugins = chartConfig.options.plugins || {};
-          chartConfig.options.plugins.tooltip = chartConfig.options.plugins.tooltip || {};
-
-          chartConfig.options.scales.x.display = false;
-          chartConfig.options.scales.y.display = false;
-          chartConfig.options.plugins.legend = { display: false };
-          chartConfig.options.plugins.tooltip.enabled = true;
-          chartConfig.data.datasets[0].borderWidth = 1.5;
-          chartConfig.data.datasets[0].pointRadius = 0;
-
-          // Render the chart
-          ctx.chart = new Chart(ctx, chartConfig);
-          return; // Success, exit the retry loop
-
+          ctx.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: chartData.map(d => d.date),
+              datasets: [{
+                label: 'Price',
+                data: chartData.map(d => d.close),
+                borderColor: '#36A2EB',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: true,
+                borderWidth: 1.5,
+                pointRadius: 0
+              }]
+            },
+            options: {
+              scales: { x: { display: false }, y: { display: false } },
+              plugins: { legend: { display: false }, tooltip: { enabled: true } }
+            }
+          });
+          return;
         } catch (error) {
           console.error(`Error rendering chart for ${symbol} (${period}) (attempt ${attempt + 1}/${retries + 1}):`, error);
           if (attempt === retries) {
-            canvas.parentElement.innerHTML = `
-              <p class="text-muted small text-center">
-                Error loading chart: ${error.message}
-                <br><button class="btn btn-link btn-sm" onclick="renderStockChart('${canvasId}', '${symbol}', '${period}')">Retry</button>
-              </p>`;
+            canvas.parentElement.innerHTML = `<p class="text-muted small text-center">Error loading chart: ${error.message}<br><button class="btn btn-link btn-sm" onclick="renderStockChart('${canvasId}', '${symbol}', '${period}')">Retry</button></p>`;
           }
         }
       }
@@ -595,9 +605,7 @@
     async function updateMainCharts(period) {
       selectedTimePeriods.main = period;
       
-      document.querySelectorAll('.period-selector-main .btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
+      document.querySelectorAll('.period-selector-main .btn').forEach(btn => btn.classList.remove('active'));
       document.querySelector(`.period-selector-main .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
       
       const filteredStocks = filterStocksForRender();
@@ -605,12 +613,11 @@
     }
 
     function populateSectorFilter(stocks) {
-      const sectorFilter = document.getElementById("sectorFilter");
+      const sectorFilter = document.getElementById('sectorFilter');
       sectorFilter.innerHTML = '<option value="">All Sectors</option>';
-      
       const sectors = [...new Set(stocks.map(stock => stock.sector))].sort();
       sectors.forEach(sector => {
-        const option = document.createElement("option");
+        const option = document.createElement('option');
         option.value = sector;
         option.textContent = sector;
         sectorFilter.appendChild(option);
@@ -618,8 +625,8 @@
     }
 
     function filterStocksForRender() {
-      const searchTerm = document.getElementById("stockSearch").value.toLowerCase();
-      const selectedSector = document.getElementById("sectorFilter").value;
+      const searchTerm = document.getElementById('stockSearch').value.toLowerCase();
+      const selectedSector = document.getElementById('sectorFilter').value;
       
       return allStocks.filter(stock => {
         const matchesSearch = stock.symbol.toLowerCase().includes(searchTerm) || 
@@ -643,9 +650,7 @@
         selectedRecommendation = recommendation;
       }
       
-      document.querySelectorAll('.recommendation-box').forEach(box => {
-        box.classList.remove('active');
-      });
+      document.querySelectorAll('.recommendation-box').forEach(box => box.classList.remove('active'));
       
       if (selectedRecommendation) {
         document.getElementById(`${selectedRecommendation.toLowerCase()}Box`).classList.add('active');
@@ -657,15 +662,11 @@
     function resetFilters() {
       selectedRecommendation = '';
       selectedTimePeriods = { main: '1D' };
-      document.getElementById("stockSearch").value = '';
-      document.getElementById("sectorFilter").value = '';
+      document.getElementById('stockSearch').value = '';
+      document.getElementById('sectorFilter').value = '';
       
-      document.querySelectorAll('.recommendation-box').forEach(box => {
-        box.classList.remove('active');
-      });
-      document.querySelectorAll('.period-selector-main .btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
+      document.querySelectorAll('.recommendation-box').forEach(box => box.classList.remove('active'));
+      document.querySelectorAll('.period-selector-main .btn').forEach(btn => btn.classList.remove('active'));
       document.querySelector('.period-selector-main .btn:nth-child(1)').classList.add('active');
       
       filterStocks();
@@ -678,20 +679,33 @@
       localStorage.setItem('theme', newTheme);
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const saved = localStorage.getItem('theme') || 'light';
-      document.documentElement.setAttribute('data-theme', saved);
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
       
-      loadDashboard();
-      updateMarketStatus();
-      
-      document.getElementById("stockSearch").addEventListener("input", filterStocks);
-      document.getElementById("sectorFilter").addEventListener("change", filterStocks);
-      document.getElementById("resetFilters").addEventListener("click", resetFilters);
+      // Check if already logged in (e.g., via session)
+      fetch('/api/stocks', { method: 'HEAD' })
+        .then(response => {
+          if (response.ok) {
+            isLoggedIn = true;
+            document.body.classList.add('logged-in');
+            loadDashboard();
+            updateMarketStatus();
+          }
+        })
+        .catch(() => {}); // Ignore errors, will prompt login
+
+      document.getElementById('stockSearch').addEventListener('input', filterStocks);
+      document.getElementById('sectorFilter').addEventListener('change', filterStocks);
+      document.getElementById('resetFilters').addEventListener('click', resetFilters);
     });
 
-    document.getElementById("refreshBtn").addEventListener("click", async () => {
-      const refreshBtn = document.getElementById("refreshBtn");
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      if (!isLoggedIn) {
+        alert('Please log in to refresh data.');
+        return;
+      }
+      const refreshBtn = document.getElementById('refreshBtn');
       refreshBtn.disabled = true;
       refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Refreshing...';
       
@@ -702,20 +716,16 @@
         if (json.success) {
           selectedRecommendation = '';
           selectedTimePeriods = { main: '1D' };
-          document.querySelectorAll('.recommendation-box').forEach(box => {
-            box.classList.remove('active');
-          });
-          document.querySelectorAll('.period-selector-main .btn').forEach(btn => {
-            btn.classList.remove('active');
-          });
+          document.querySelectorAll('.recommendation-box').forEach(box => box.classList.remove('active'));
+          document.querySelectorAll('.period-selector-main .btn').forEach(btn => btn.classList.remove('active'));
           document.querySelector('.period-selector-main .btn:nth-child(1)').classList.add('active');
           
           await loadDashboard();
         } else {
-          alert("Refresh failed: " + json.error);
+          alert('Refresh failed: ' + json.error);
         }
       } catch (error) {
-        alert("Error refreshing data: " + error.message);
+        alert('Error refreshing data: ' + error.message);
       } finally {
         refreshBtn.disabled = false;
         refreshBtn.innerHTML = '<span class="refresh-icon">🔄</span> Refresh';
