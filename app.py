@@ -951,12 +951,17 @@ def live_prediction(symbol):
         logger.error(f"Error generating live prediction for {symbol}: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_spa(path):
-    if path != "" and os.path.exists(os.path.join("static", path)):
-        return send_from_directory("static", path)
-    return send_from_directory("static", "index.html")  # Serve index.html for root and unknown paths
+@app.route('/')
+def serve_index():
+    return send_from_directory('templates', 'index.html')
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
+
+
+
+
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
