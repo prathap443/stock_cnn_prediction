@@ -756,7 +756,7 @@ def api_stock_history(symbol, period):
         history = get_price_history(symbol, period)
         return jsonify(history)
     except Exception as e:
-        logger.error(f"Error fetching history for {symbol} ({period): {str(e)}")
+        logger.error(f"Error fetching history for {symbol} ({period}) {str(e)}")
         return jsonify([{"error": f"Error fetching {period} history: {str(e)}"}]), 500
 
 @app.route('/api/refresh', methods=['POST'])
