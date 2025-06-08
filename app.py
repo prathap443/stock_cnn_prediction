@@ -21,10 +21,6 @@ from flask import send_from_directory
 from dotenv import load_dotenv
 load_dotenv()
 
-if os.environ.get("RENDER") != "true":  # Optional: only load .env locally
-    from dotenv import load_dotenv
-    load_dotenv()
-
 # Setup logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -40,7 +36,7 @@ ALPACA_HEADERS = {
     "APCA-API-SECRET-KEY": os.getenv("ALPACA_SECRET_KEY")
 }
 
-# Define CNN Model (must match train_model.py)
+# Define CNN Model
 class StockPredictor(nn.Module):
     def __init__(self, input_size, num_classes):
         super(StockPredictor, self).__init__()
@@ -81,16 +77,13 @@ except Exception as e:
     logger.error(f"Failed to load label encoder: {str(e)}")
     label_encoder = None
 
-# Define feature columns (match train_model.py)
 FEATURE_COLUMNS = [
     'RSI', 'MACD', 'SMA_50', 'BB_Width', 'Stochastic',
     'News_Sentiment', 'volume_score', 'percent_change_5d', 'volatility'
 ]
 
-# Create directories
 os.makedirs('data', exist_ok=True)
 
-# Stock lists
 base_stocks = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", 
     "TSLA", "NVDA", "JPM", "V", "WMT", 
@@ -110,7 +103,6 @@ TECH_STOCKS = [
 STOCK_LIST = sorted(set(base_stocks + AI_STOCKS + TECH_STOCKS))
 logger.info(f"Final STOCK_LIST contains {len(STOCK_LIST)} symbols.")
 
-# Static mapping of stock symbols to sectors
 SECTOR_MAPPING = {
     "AAPL": "Technology",
     "MSFT": "Technology",
@@ -153,8 +145,6 @@ def is_market_open():
     est_time = now + est_offset
     market_open = est_time.replace(hour=9, minute=30, second=0, microsecond=0)
     market_close = est_time.replace(hour=16, minute=0, second=0, microsecond=0)
-    market_open = market_open.replace(year=est_time.year, month=est_time.month, day=est_time.day)
-    market_close = market_close.replace(year=est_time.year, month=est_time.month, day=est_time.day)
     if est_time.weekday() >= 5:
         return False
     return market_open <= est_time <= market_close
@@ -181,7 +171,6 @@ def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3)
             response = requests.get(url, headers=ALPACA_HEADERS, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            
             if "bars" in data:
                 logger.info(f"Fetched {len(data['bars'])} bars for {symbol} ({timeframe})")
                 return data["bars"]
@@ -190,14 +179,12 @@ def fetch_alpaca_data(symbol, start_date, end_date, timeframe="1Day", retries=3)
                 if attempt == retries - 1:
                     return []
                 time.sleep(random.uniform(1, 3))
-                
         except requests.exceptions.RequestException as e:
             logger.warning(f"Attempt {attempt + 1}/{retries} failed for {symbol}: {str(e)}")
             if attempt == retries - 1:
                 logger.error(f"Failed to fetch bars for {symbol} after {retries} attempts")
                 return []
             time.sleep(random.uniform(1, 3))
-    
     return []
 
 def fetch_alpaca_quote(symbol, retries=3):
@@ -277,12 +264,10 @@ def get_price_history(symbol, period):
         start_dt = last_trading_day.replace(hour=9, minute=30, second=0, microsecond=0) + est_offset
         end_dt = last_trading_day.replace(hour=16, minute=0, second=0, microsecond=0) + est_offset
         timeframe = "1Min"
-        
         if is_market_open():
-            start_dt = now - timedelta(hours=6)  # Last 6 hours for intraday
+            start_dt = now - timedelta(hours=6)
             end_dt = now
             timeframe = "1Min"
-            
     elif period == "1W":
         start_dt = end_dt - timedelta(days=7)
         timeframe = "1Day"
@@ -302,13 +287,12 @@ def get_price_history(symbol, period):
 
     bars = fetch_alpaca_data(symbol, start_dt, end_dt, timeframe)
     if not bars:
-        if period == "1D":
-            start_dt = last_trading_day.replace(hour=9, minute=30, second=0, microsecond=0) + est_offset
-            end_dt = last_trading_day.replace(hour=16, minute=0, second=0, microsecond=0) + est_offset
-            timeframe = "1Day"
-            bars = fetch_alpaca_data(symbol, start_dt, end_dt, timeframe)
-            if not bars:
-                return [{"error": f"Unable to fetch {period} data for {symbol} after multiple attempts."}]
+        start_dt = last_trading_day.replace(hour=9, minute=30, second=0, microsecond=0) + est_offset
+        end_dt = last_trading_day.replace(hour=16, minute=0, second=0, microsecond=0) + est_offset
+        timeframe = "1Day"
+        bars = fetch_alpaca_data(symbol, start_dt, end_dt, timeframe)
+        if not bars:
+            return [{"error": f"Unable to fetch {period} data for {symbol} after multiple attempts."}]
     
     try:
         history = []
@@ -606,11 +590,15 @@ def analyze_stock(symbol):
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
         if model is not None and scaler is not None:
-            features_array = scaler.transform(features_df)
-            features_tensor = torch.tensor(features_array, dtype=torch.float).unsqueeze(0)
-            with torch.no_grad():
-                pred = model(features_tensor).argmax(dim=1).item()
-            recommendation = label_encoder.inverse_transform([pred])[0]
+            try:
+                features_array = scaler.transform(features_df)
+                features_tensor = torch.tensor(features_array, dtype=torch.float32).unsqueeze(0)
+                with torch.no_grad():
+                    pred = model(features_tensor).argmax(dim=1).item()
+                recommendation = label_encoder.inverse_transform([pred])[0]
+            except Exception as e:
+                logger.error(f"Model prediction failed for {symbol}: {str(e)}")
+                recommendation = "HOLD"
         else:
             recommendation = "HOLD"
 
@@ -622,7 +610,7 @@ def analyze_stock(symbol):
             f"Volatility={volatility:.2f}"
         )
 
-        logger.info(f"{symbol} â�� CNN RECOMMEND: {recommendation}")
+        logger.info(f"{symbol} – CNN RECOMMEND: {recommendation}")
 
         return {
             "symbol": symbol,
@@ -708,16 +696,19 @@ def analyze_all_stocks():
         logger.error(f"Error in analyze_all_stocks: {str(e)}")
         return {"error": f"Analysis failed: {str(e)}"}
 
-# Simple authentication for API access (replace with token-based auth if needed)
-APP_USERNAME = os.getenv("APP_USERNAME")
-APP_PASSWORD = os.getenv("APP_PASSWORD")
+APP_USERNAME = os.getenv("APP_USERNAME", "admin")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "password123")
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-
+    logger.info(f"Login attempt: username={username}, password=****")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+    
     if username == APP_USERNAME and password == APP_PASSWORD:
         session['user'] = {"username": username}
         return jsonify({"success": True, "message": "Logged in successfully"})
@@ -926,11 +917,15 @@ def live_prediction(symbol):
         features_df['News_Sentiment'] = features_df['News_Sentiment'].fillna(0.0)
 
         if model is not None and scaler is not None:
-            features_array = scaler.transform(features_df)
-            features_tensor = torch.tensor(features_array, dtype=torch.float).unsqueeze(0)
-            with torch.no_grad():
-                pred = model(features_tensor).argmax(dim=1).item()
-            recommendation = label_encoder.inverse_transform([pred])[0]
+            try:
+                features_array = scaler.transform(features_df)
+                features_tensor = torch.tensor(features_array, dtype=torch.float32).unsqueeze(0)
+                with torch.no_grad():
+                    pred = model(features_tensor).argmax(dim=1).item()
+                recommendation = label_encoder.inverse_transform([pred])[0]
+            except Exception as e:
+                logger.error(f"Model prediction failed for {symbol}: {str(e)}")
+                recommendation = "HOLD"
         else:
             recommendation = "HOLD"
 
@@ -958,10 +953,6 @@ def serve_index():
 @app.route('/static/<path:path>')
 def serve_static(path):
     return send_from_directory('static', path)
-
-
-
-
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
