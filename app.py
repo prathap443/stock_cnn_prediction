@@ -622,7 +622,7 @@ def analyze_stock(symbol):
             f"Volatility={volatility:.2f}"
         )
 
-        logger.info(f"{symbol} â�� CNN RECOMMEND: {recommendation}")
+        logger.info(f"{symbol} Ã¢ï¿½ï¿½ CNN RECOMMEND: {recommendation}")
 
         return {
             "symbol": symbol,
@@ -720,12 +720,15 @@ def login():
 
     if username == APP_USERNAME and password == APP_PASSWORD:
         session['user'] = {"username": username}
+        logger.info(f"User {username} logged in successfully")
         return jsonify({"success": True, "message": "Logged in successfully"})
     return jsonify({"error": "Invalid credentials"}), 401
 
 @app.route('/api/logout')
 def logout():
+    username = session.get('user', {}).get('username', 'unknown')
     session.clear()
+    logger.info(f"User {username} logged out successfully")
     return jsonify({"success": True, "message": "Logged out successfully"})
 
 @app.route('/api/stocks')
@@ -734,6 +737,7 @@ def api_stocks():
         if not session.get('user'):
             return jsonify({"error": "Unauthorized access"}), 401
         
+        logger.info(f"Session active for user: {session.get('user').get('username', 'unknown')}")
         cache_duration = 300 if is_market_open() else 1800
         if os.path.exists('data/stock_analysis.json'):
             with open('data/stock_analysis.json', 'r') as f:
@@ -753,6 +757,7 @@ def api_stock_history(symbol, period):
         if not session.get('user'):
             return jsonify({"error": "Unauthorized access"}), 401
         
+        logger.info(f"Fetching history for {symbol} ({period}) for user: {session.get('user').get('username', 'unknown')}")
         history = get_price_history(symbol, period)
         return jsonify(history)
     except Exception as e:
@@ -765,6 +770,7 @@ def api_refresh():
         if not session.get('user'):
             return jsonify({"error": "Unauthorized access"}), 401
         
+        logger.info(f"Refreshing data for user: {session.get('user').get('username', 'unknown')}")
         if os.path.exists('data/stock_analysis.json'):
             os.remove('data/stock_analysis.json')
         data = analyze_all_stocks()
@@ -812,7 +818,7 @@ def buy_stock():
         }
         response = requests.post(url, json=payload, headers=ALPACA_HEADERS, timeout=10)
         response.raise_for_status()
-        logger.info(f"Buy order placed for {quantity} shares of {symbol}")
+        logger.info(f"Buy order placed for {quantity} shares of {symbol} by user: {session.get('user').get('username', 'unknown')}")
         return jsonify(response.json())
     except requests.exceptions.RequestException as e:
         logger.error(f"Error placing buy order for {symbol}: {str(e)}")
@@ -858,7 +864,7 @@ def sell_stock():
         }
         response = requests.post(url, json=payload, headers=ALPACA_HEADERS, timeout=10)
         response.raise_for_status()
-        logger.info(f"Sell order placed for {quantity} shares of {symbol}")
+        logger.info(f"Sell order placed for {quantity} shares of {symbol} by user: {session.get('user').get('username', 'unknown')}")
         return jsonify(response.json())
     except requests.exceptions.RequestException as e:
         logger.error(f"Error placing sell order for {symbol}: {str(e)}")
@@ -873,6 +879,7 @@ def live_prediction(symbol):
         if not session.get('user'):
             return jsonify({"error": "Unauthorized access"}), 401
         
+        logger.info(f"Generating live prediction for {symbol} for user: {session.get('user').get('username', 'unknown')}")
         history_1d = get_price_history(symbol, "1D")
         if not history_1d or ('error' in history_1d[0] and history_1d[0]['error']):
             return jsonify({"error": "Insufficient intraday data for prediction"}), 400
@@ -951,6 +958,19 @@ def live_prediction(symbol):
         logger.error(f"Error generating live prediction for {symbol}: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/news/<symbol>')
+def api_news(symbol):
+    try:
+        if not session.get('user'):
+            return jsonify({"error": "Unauthorized access"}), 401
+        
+        logger.info(f"Fetching news for {symbol} for user: {session.get('user').get('username', 'unknown')}")
+        articles, sentiment_score = get_news_articles(symbol)
+        return jsonify({"articles": articles, "sentiment_score": sentiment_score})
+    except Exception as e:
+        logger.error(f"Error fetching news for {symbol}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/')
 def serve_index():
     return send_from_directory('templates', 'index.html')
@@ -958,10 +978,6 @@ def serve_index():
 @app.route('/static/<path:path>')
 def serve_static(path):
     return send_from_directory('static', path)
-
-
-
-
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
