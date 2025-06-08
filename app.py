@@ -16,10 +16,10 @@ from textblob import TextBlob
 import ta
 import joblib
 from flask import send_from_directory
+
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
-
 
 if os.environ.get("RENDER") != "true":  # Optional: only load .env locally
     from dotenv import load_dotenv
@@ -622,7 +622,7 @@ def analyze_stock(symbol):
             f"Volatility={volatility:.2f}"
         )
 
-        logger.info(f"{symbol} → CNN RECOMMEND: {recommendation}")
+        logger.info(f"{symbol} â�� CNN RECOMMEND: {recommendation}")
 
         return {
             "symbol": symbol,
@@ -709,8 +709,6 @@ def analyze_all_stocks():
         return {"error": f"Analysis failed: {str(e)}"}
 
 # Simple authentication for API access (replace with token-based auth if needed)
-
-
 APP_USERNAME = os.getenv("APP_USERNAME")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
 
@@ -724,8 +722,6 @@ def login():
         session['user'] = {"username": username}
         return jsonify({"success": True, "message": "Logged in successfully"})
     return jsonify({"error": "Invalid credentials"}), 401
-
-
 
 @app.route('/api/logout')
 def logout():
@@ -760,7 +756,7 @@ def api_stock_history(symbol, period):
         history = get_price_history(symbol, period)
         return jsonify(history)
     except Exception as e:
-        logger.error(f"Error fetching history for {symbol} ({period}): {str(e)}")
+        logger.error(f"Error fetching history for {symbol} ({period): {str(e)}")
         return jsonify([{"error": f"Error fetching {period} history: {str(e)}"}]), 500
 
 @app.route('/api/refresh', methods=['POST'])
@@ -954,10 +950,6 @@ def live_prediction(symbol):
     except Exception as e:
         logger.error(f"Error generating live prediction for {symbol}: {str(e)}")
         return jsonify({"error": str(e)}), 500
-    
-from flask import render_template
-
-from flask import render_template
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -965,19 +957,6 @@ def serve_spa(path):
     if path != "" and os.path.exists(os.path.join("static", path)):
         return send_from_directory("static", path)
     return send_from_directory("static", "index.html")  # Serve index.html for root and unknown paths
-
-# Ensure API routes are not overridden by serve_spa
-@app.route('/api/stocks')
-def api_stocks():
-    try:
-        if not session.get('user'):
-            return jsonify({"error": "Unauthorized access"}), 401
-        # ... (rest of the api_stocks function remains the same)
-    except Exception as e:
-        logger.error(f"API error: {str(e)}")
-        return jsonify({"error": f"API error: {str(e)}"}), 500
-
-
 
 if __name__ == "__main__":
     if not os.path.exists('data/stock_analysis.json'):
