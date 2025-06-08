@@ -41,3 +41,4 @@ threading.Timer(5, initial_load).start()
 threading.Thread(target=refresh_data_periodically, daemon=True).start()
 
 # Gunicorn expects 'app' here
+app = app

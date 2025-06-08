@@ -1,6 +1,9 @@
-services: 
+services:
   - type: web
-    name: stock_cnn_prediction
+    name: stock-cnn-prediction
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn wsgi:app
+    envVars:
+      - key: ENV
+        value: production
