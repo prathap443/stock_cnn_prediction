@@ -150,60 +150,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="stockDetailModalBody">
-          <div class="row">
-            <div class="col-md-8">
-              <div class="chart-container">
-                <canvas id="detailChart" height="300"></canvas>
-              </div>
-              <div class="btn-group btn-group-sm mt-2 period-selector" role="group">
-                <button type="button" class="btn btn-outline-primary" onclick="updateDetailChart('1D')">1D</button>
-                <button type="button" class="btn btn-outline-primary" onclick="updateDetailChart('1W')">1W</button>
-                <button type="button" class="btn btn-outline-primary active" onclick="updateDetailChart('1M')">1M</button>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="stats-container">
-                <h4 id="detailSymbol"></h4>
-                <p id="detailName" class="text-muted"></p>
-                <div class="price-container">
-                  <span id="detailPrice" class="detail-price"></span>
-                  <span id="detailChange" class="detail-change"></span>
-                </div>
-                <hr>
-                <h5>Key Statistics</h5>
-                <div class="stats-grid">
-                  <div class="stat-item">
-                    <small class="text-muted">RSI</small>
-                    <div id="detailRSI"></div>
-                  </div>
-                  <div class="stat-item">
-                    <small class="text-muted">MACD</small>
-                    <div id="detailMACD"></div>
-                  </div>
-                  <div class="stat-item">
-                    <small class="text-muted">Sentiment</small>
-                    <div id="detailSentiment"></div>
-                  </div>
-                  <div class="stat-item">
-                    <small class="text-muted">Recommendation</small>
-                    <div id="detailRecommendation"></div>
-                  </div>
-                </div>
-                
-                <div class="mt-3">
-                  <h5>Live Prediction</h5>
-                  <div id="detailPrediction" class="prediction-container"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="row mt-4">
-            <div class="col-12">
-              <h5>Recent News</h5>
-              <div id="detailNews" class="news-container"></div>
-            </div>
-          </div>
+          <!-- Content will be dynamically inserted here -->
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -214,9 +161,22 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // -- helper to fetch JSON with credentials & error handling --
+    async function fetchJson(url, opts = {}) {
+      const res = await fetch(url, { credentials: 'include', ...opts });
+      const text = await res.text();
+      if (!res.ok) {
+        let err;
+        try { err = JSON.parse(text).error || JSON.parse(text).message; }
+        catch { err = text; }
+        throw new Error(err || `HTTP ${res.status}`);
+      }
+      return JSON.parse(text);
+    }
+
     let allStocks = [];
     let selectedRecommendation = '';
-    let selectedTimePeriods = { main: '1D' };
+    let selectedTimePeriods = { main: '1D', detail: '1M' };
     let currentDetailSymbol = '';
     let isLoggedIn = false;
 
@@ -357,9 +317,8 @@
 
       document.getElementById('dashboardContent').innerHTML = html;
 
-      for (let i = 0; i < stocks.length; i++) {
-        await renderStockChart(`chart-${i}`, stocks[i].symbol, period);
-      }
+      // Removed the mini-sparkline loop as instructed
+      // Charts will only be drawn on demand now
 
       document.querySelectorAll('.trade-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -400,85 +359,86 @@
     }
 
     async function showStockDetail(symbol) {
-      try {
-        currentDetailSymbol = symbol;
-        const stock = allStocks.find(s => s.symbol === symbol);
-        
-        if (!stock) {
-          alert(`Stock data for ${symbol} not found`);
-          return;
-        }
-        
-        document.getElementById('stockDetailModalLabel').innerText = `${symbol} - ${stock.name}`;
-        document.getElementById('detailSymbol').innerText = symbol;
-        document.getElementById('detailName').innerText = stock.name;
-        document.getElementById('detailPrice').innerText = `$${stock.current_price?.toFixed(2) || 'N/A'}`;
-        
-        const trendColor = stock.percent_change_2w >= 0 ? 'text-success' : 'text-danger';
-        const trendIcon = stock.percent_change_2w >= 0 ? '↑' : '↓';
-        document.getElementById('detailChange').innerText = `${trendIcon} ${Math.abs(stock.percent_change_2w).toFixed(2)}%`;
-        document.getElementById('detailChange').className = `detail-change ${trendColor}`;
-        
-        document.getElementById('detailRSI').innerText = stock.technical_indicators?.rsi || 'N/A';
-        document.getElementById('detailMACD').innerText = stock.technical_indicators?.macd || 'N/A';
-        document.getElementById('detailSentiment').innerText = stock.news_sentiment !== undefined ? stock.news_sentiment.toFixed(3) : 'N/A';
-        
-        const recElement = document.getElementById('detailRecommendation');
-        recElement.innerText = stock.recommendation;
-        recElement.className = '';
-        recElement.classList.add(stock.recommendation === 'BUY' ? 'text-success' : 
-                                stock.recommendation === 'SELL' ? 'text-danger' : 'text-warning');
-        
-        renderDetailNews(stock.news_articles);
-        await getLiveDetailPrediction(symbol);
-        updateDetailChart('1M');
-        
-        const modal = new bootstrap.Modal(document.getElementById('stockDetailModal'));
-        modal.show();
-      } catch (error) {
-        console.error(`Error showing details for ${symbol}:`, error);
-        alert(`Error loading details: ${error}`);
-      }
+      currentDetailSymbol = symbol;
+      const stock = allStocks.find(s => s.symbol === symbol);
+      if (!stock) return alert('Stock data not found');
+
+      // Build modal content
+      const body = document.getElementById('stockDetailModalBody');
+      body.innerHTML = `
+        <div class="row">
+          <div class="col-md-8">
+            <div class="chart-container mb-2">
+              <canvas id="chart-detail-${symbol}"></canvas>
+            </div>
+            <div class="btn-group btn-group-sm period-selector mb-4">
+              <button class="btn btn-outline-primary" onclick="updateDetailChart('1D')">1D</button>
+              <button class="btn btn-outline-primary" onclick="updateDetailChart('1W')">1W</button>
+              <button class="btn btn-outline-primary active" onclick="updateDetailChart('1M')">1M</button>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <h4>${symbol}</h4>
+            <p class="text-muted">${stock.name}</p>
+            <h3>$${stock.current_price?.toFixed(2) || 'N/A'}</h3>
+            <p>Change: ${stock.percent_change_2w.toFixed(2)}%</p>
+            <hr>
+            <h5>Key Stats</h5>
+            <p>RSI: ${stock.technical_indicators?.rsi || 'N/A'}</p>
+            <p>MACD: ${stock.technical_indicators?.macd || 'N/A'}</p>
+            <p>Sentiment: ${stock.news_sentiment?.toFixed(3) || 'N/A'}</p>
+            <p>Recommendation: ${stock.recommendation}</p>
+            <hr>
+            <h5>Live Prediction</h5>
+            <div id="detailPrediction">Loading…</div>
+          </div>
+        </div>
+        <div class="row mt-4">
+          <div class="col-12">
+            <h5>Recent News</h5>
+            <div id="detailNews">Loading…</div>
+          </div>
+        </div>
+      `;
+
+      // Show the modal
+      new bootstrap.Modal(document.getElementById('stockDetailModal')).show();
+
+      // Draw the chart & load other detail-data
+      updateDetailChart(selectedTimePeriods.detail);
+      getLiveDetailPrediction(symbol);
+      renderDetailNews(stock.news_articles);
     }
     
     async function updateDetailChart(period) {
-      if (!currentDetailSymbol) return;
+      selectedTimePeriods.detail = period;
+      document.querySelectorAll('.period-selector .btn')
+              .forEach(btn => btn.classList.toggle('active', btn.textContent === period));
 
-      document.querySelectorAll('.period-selector .btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelector(`.period-selector .btn:nth-child(${period === '1D' ? 1 : period === '1W' ? 2 : 3})`).classList.add('active');
+      const symbol = currentDetailSymbol;
+      const canvas = document.getElementById(`chart-detail-${symbol}`);
+      if (!canvas) return;
 
       try {
-        const response = await fetch(`/api/stock_history/${currentDetailSymbol}/${period}`);
-        const chartData = await response.json();
-
-        if (chartData.error) {
-          document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-muted">${chartData.error}</p>`;
-          return;
-        }
-
-        const ctx = document.getElementById('detailChart').getContext('2d');
+        const history = await fetchJson(`/api/stock_history/${symbol}/${period}`);
+        const ctx = canvas.getContext('2d');
         if (ctx.chart) ctx.chart.destroy();
-
         ctx.chart = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: chartData.map(d => d.date),
+            labels: history.map(h => h.date),
             datasets: [{
-              label: 'Price',
-              data: chartData.map(d => d.close),
-              borderColor: '#36A2EB',
-              backgroundColor: 'rgba(54, 162, 235, 0.2)',
-              fill: true
+              label: symbol,
+              data: history.map(h => h.close),
+              borderColor: getComputedStyle(document.documentElement)
+                           .getPropertyValue('--chart-color'),
+              tension: 0.3
             }]
           },
-          options: {
-            scales: { x: { display: false }, y: { display: false } },
-            plugins: { legend: { display: false }, tooltip: { enabled: true } }
-          }
+          options: { animation: { duration: 400 } }
         });
-      } catch (error) {
-        console.error(`Error loading chart for ${currentDetailSymbol}: ${error}`);
-        document.getElementById('detailChart').parentElement.innerHTML = `<p class="text-danger">Chart load error: ${error}</p>`;
+      } catch (err) {
+        canvas.parentElement.innerHTML = `<p class="text-danger">No data: ${err.message}</p>`;
       }
     }
     
@@ -507,13 +467,7 @@
         const predictionContainer = document.getElementById('detailPrediction');
         predictionContainer.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div> Getting prediction...';
         
-        const response = await fetch(`/api/live_prediction/${symbol}`);
-        const data = await response.json();
-        
-        if (data.error) {
-          predictionContainer.innerText = `Error: ${data.error}`;
-          return;
-        }
+        const data = await fetchJson(`/api/live_prediction/${symbol}`);
         
         const trendColor = data.percent_change_today >= 0 ? 'text-success' : 'text-danger';
         const trendIcon = data.percent_change_today >= 0 ? '↑' : '↓';
@@ -531,7 +485,7 @@
             <div class="small text-muted">Updated: ${data.last_updated}</div>
           </div>`;
       } catch (error) {
-        document.getElementById('detailPrediction').innerText = `Error fetching live prediction: ${error}`;
+        document.getElementById('detailPrediction').innerText = `Error fetching live prediction: ${error.message}`;
       }
     }
 
@@ -661,76 +615,9 @@
 
     function resetFilters() {
       selectedRecommendation = '';
-      selectedTimePeriods = { main: '1D' };
+      selectedTimePeriods = { main: '1D', detail: '1M' };
       document.getElementById('stockSearch').value = '';
       document.getElementById('sectorFilter').value = '';
       
       document.querySelectorAll('.recommendation-box').forEach(box => box.classList.remove('active'));
-      document.querySelectorAll('.period-selector-main .btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelector('.period-selector-main .btn:nth-child(1)').classList.add('active');
-      
-      filterStocks();
-    }
-
-    function toggleTheme() {
-      const current = document.documentElement.getAttribute('data-theme') || 'light';
-      const newTheme = current === 'light' ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      
-      // Check if already logged in (e.g., via session)
-      fetch('/api/stocks', { method: 'HEAD' })
-        .then(response => {
-          if (response.ok) {
-            isLoggedIn = true;
-            document.body.classList.add('logged-in');
-            loadDashboard();
-            updateMarketStatus();
-          }
-        })
-        .catch(() => {}); // Ignore errors, will prompt login
-
-      document.getElementById('stockSearch').addEventListener('input', filterStocks);
-      document.getElementById('sectorFilter').addEventListener('change', filterStocks);
-      document.getElementById('resetFilters').addEventListener('click', resetFilters);
-    });
-
-    document.getElementById('refreshBtn').addEventListener('click', async () => {
-      if (!isLoggedIn) {
-        alert('Please log in to refresh data.');
-        return;
-      }
-      const refreshBtn = document.getElementById('refreshBtn');
-      refreshBtn.disabled = true;
-      refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Refreshing...';
-      
-      try {
-        const res = await fetch('/api/refresh', { method: 'POST' });
-        const json = await res.json();
-        
-        if (json.success) {
-          selectedRecommendation = '';
-          selectedTimePeriods = { main: '1D' };
-          document.querySelectorAll('.recommendation-box').forEach(box => box.classList.remove('active'));
-          document.querySelectorAll('.period-selector-main .btn').forEach(btn => btn.classList.remove('active'));
-          document.querySelector('.period-selector-main .btn:nth-child(1)').classList.add('active');
-          
-          await loadDashboard();
-        } else {
-          alert('Refresh failed: ' + json.error);
-        }
-      } catch (error) {
-        alert('Error refreshing data: ' + error.message);
-      } finally {
-        refreshBtn.disabled = false;
-        refreshBtn.innerHTML = '<span class="refresh-icon">🔄</span> Refresh';
-      }
-    });
-  </script>
-</body>
-</html>
+      document.querySelectorAll('.period-selector-main .btn').forEach(btn => btn.classList
